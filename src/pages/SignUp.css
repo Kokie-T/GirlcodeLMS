@@ -1,0 +1,31 @@
+/* src/styles/SignupForm.css */
+
+.signup-container {
+  height: 100vh;
+  background-color: #f9f9fc;
+}
+
+.signup-card {
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.btn-group .btn {
+  flex: 1;
+  font-weight: 500;
+}
+
+.signup-card form input {
+  font-size: 0.95rem;
+}
+
+.signup-card a {
+  color: #6c63ff;
+  text-decoration: none;
+}
+
+.signup-card a:hover {
+  text-decoration: underline;
+}

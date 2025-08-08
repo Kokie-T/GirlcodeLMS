@@ -1,0 +1,9 @@
+.privacy-policy {
+  max-width: 800px;
+  margin: auto;
+  line-height: 1.7;
+}
+
+.privacy-policy h1, .privacy-policy h2 {
+  color: black;
+}

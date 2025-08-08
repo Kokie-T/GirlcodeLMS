@@ -1,0 +1,38 @@
+/* src/styles/Login.css */
+
+.login-page {
+  background-color: #f9f9fc;
+}
+
+.login-page .bg-white {
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+}
+
+.login-page h2 {
+  font-weight: 600;
+}
+
+.login-page .btn-primary {
+  background-color: #6c63ff;
+  border-color: #6c63ff;
+  font-weight: 500;
+}
+
+.login-page .btn-primary:hover {
+  background-color: #574dcf;
+  border-color: #574dcf;
+}
+
+.login-page .btn-outline-danger {
+  font-weight: 500;
+  border-width: 1.5px;
+}
+
+.login-page a {
+  color: #6c63ff;
+}
+
+.login-page a:hover {
+  text-decoration: underline;
+}

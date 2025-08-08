@@ -1,0 +1,53 @@
+.footer {
+  background-color: #111827; /* Dark background */
+  color: white;
+  padding: 20px 0;
+  font-size: 0.9rem;
+}
+
+.footer-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.social-icons a {
+  color: white;
+  margin: 0 8px;
+  font-size: 1.2rem;
+  transition: color 0.3s ease;
+}
+
+.social-icons a:hover {
+  color: goldenrod;
+}
+
+.footer-center {
+  margin-top: 10px;
+}
+
+.footer-link {
+  color: white;
+  text-decoration: none;
+  margin-right: 5px;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
+}
+
+.company-name {
+  font-weight: bold;
+}
+
+.copyright {
+  margin-top: 10px;
+}
+
+@media (min-width: 768px) {
+  .footer-center,
+  .copyright {
+    margin-top: 0;
+  }
+}

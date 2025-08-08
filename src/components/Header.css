@@ -1,0 +1,43 @@
+.navbar {
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 1rem 
+}
+
+.navbar .navbar-brand {
+  font-weight: bold;
+  font-size: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+  color: white !important;
+  margin-left: 1rem;
+}
+
+.navbar-nav .nav-link:hover {
+  color:goldenrod !important;
+}
+
+.logo-img {
+  width: 100px;
+  height: auto;
+}
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+}
