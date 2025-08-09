@@ -8,33 +8,37 @@ import SignUp from './pages/SignUp';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import CourseContent from './pages/CourseContent';
 
 import FacilitatorDashboard from './pages/FacilitatorDashboard';
 import LearnerDashboard from './pages/LearnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import LearnerProfile from './pages/LearnerProfile';
+import MyCourses from './pages/MyCourses';  // <---- Import added here
 
 function AppContent() {
   const location = useLocation();
 
-  // Routes where header/footer should be hidden
-  const noLayoutRoutes = ['/SignUp', '/Login'];
-  const hideLayout = noLayoutRoutes.includes(location.pathname);
+  const showLayout = location.pathname === "/";
 
   return (
     <>
-      {!hideLayout && <Header />}
+      {showLayout && <Header />}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        
+        <Route path="/course/:id" element={<CourseContent />} />
+
         {/* Dashboard routes */}
         <Route path="/facilitator-dashboard" element={<FacilitatorDashboard />} />
         <Route path="/learner-dashboard" element={<LearnerDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/learner-profile" element={<LearnerProfile />} />
+        <Route path="/courses" element={<MyCourses />} />
       </Routes>
-      {!hideLayout && <Footer />}
+      {showLayout && <Footer />}
     </>
   );
 }
