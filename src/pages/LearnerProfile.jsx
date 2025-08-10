@@ -71,12 +71,20 @@ export default function LearnerProfile() {
           >
             Settings
           </a>
+
           <a
             href="#"
             className="block px-3 py-2 rounded-md hover:bg-white hover:shadow-md transition"
           >
             Logout
           </a>
+
+            <a
+              href="/help"
+              className="block px-3 py-2 rounded-md hover:bg-white hover:shadow-md transition"
+            >
+               Help
+            </a>
         </nav>
       </div>
 

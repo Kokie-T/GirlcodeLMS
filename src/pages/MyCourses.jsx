@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaQuestionCircle } from "react-icons/fa";
 import {
   HiOutlineHome,
   HiOutlineBookOpen,
@@ -20,8 +21,8 @@ const MyCourses = () => {
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
-  ];
 
+  ];
   // Sample courses enrolled by learner
   const enrolledCourses = [
     { id: 1, title: "Introduction to Web Development", progress: 75 },

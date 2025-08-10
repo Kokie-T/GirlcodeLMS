@@ -40,6 +40,7 @@ const LearnerDashboard = () => {
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
+    
   ];
 
   useEffect(() => {
