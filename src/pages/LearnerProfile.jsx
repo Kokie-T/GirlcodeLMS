@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaBars, FaTimes, FaUserCircle } from "react-icons/fa";
 
-export default function LearnerProfile() {
+export default function Learnerprofile() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
   const [formData, setFormData] = useState({

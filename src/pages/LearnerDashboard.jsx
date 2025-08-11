@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+
 import {
   HiOutlineHome,
   HiOutlineBookOpen,
@@ -12,14 +13,29 @@ import {
   HiChatAlt2,
 } from "react-icons/hi";
 
-const LearnerDashboard = () => {
+export default function LearnerDashboard(){
+//const LearnerDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [formData, setFormData] = useState({
-    fullname: "kokie Ratlou",
-    email: "kokiet@gmail.com",
+    fullname: " ",
+    email: " ",
   });
+
+  //const logout = () => {
+    // Clear all user-related localStorage (add keys you use)
+    //localStorage.removeItem("learnerAvatar");
+    // You can clear everything if no other data is needed:
+    // localStorage.clear();
+
+    // Optionally clear sessionStorage too
+    // sessionStorage.clear();
+
+    // Redirect to login or landing page
+   // navigate("/login");
+  //};
 
   // Notification & Messages state
   const [notifOpen, setNotifOpen] = useState(false);
@@ -39,11 +55,22 @@ const LearnerDashboard = () => {
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
-    { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
+    { name: "Logout", icon: <HiOutlineLogout />, action: logout },
     
   ];
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatar(reader.result);
+        localStorage.setItem("learnerAvatar", reader.result); // Save avatar persistently
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const savedAvatar = localStorage.getItem("learnerAvatar");
     if (savedAvatar) {
       setAvatar(savedAvatar);
@@ -64,18 +91,6 @@ const LearnerDashboard = () => {
     };
   }, []);
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setAvatar(base64String);
-        localStorage.setItem("learnerAvatar", base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -97,6 +112,12 @@ const LearnerDashboard = () => {
     { from: "Instructor Jane", text: "Don't forget the webinar tomorrow!" },
     { from: "Admin", text: "Your profile has been updated." },
   ];
+ 
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
+
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -216,6 +237,70 @@ const LearnerDashboard = () => {
                 </div>
               )}
             </div>
+            <div className="flex h-screen">
+      {/* Sidebar */}
+      <aside className="w-64 bg-blue-700 text-white p-5 flex flex-col">
+        <h1 className="text-2xl font-bold mb-5">Learner Dashboard</h1>
+        <nav className="flex flex-col gap-3">
+          <button onClick={() => navigate("/learner-profile")} className="hover:bg-blue-500 p-2 rounded">
+            Profile
+          </button>
+          <button onClick={() => navigate("/my-courses")} className="hover:bg-blue-500 p-2 rounded">
+            My Courses
+          </button>
+          <button onClick={() => setIsLogoutPopupOpen(true)} className="bg-red-500 hover:bg-red-600 p-2 rounded">
+            Logout
+          </button>
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6 bg-gray-100">
+        {/* Top Bar */}
+        <div className="flex justify-end mb-4">
+          <label className="relative cursor-pointer">
+            <img
+              src={avatar || "https://via.placeholder.com/40"}
+              alt="Avatar"
+              className="w-10 h-10 rounded-full border-2 border-blue-500"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </label>
+        </div>
+
+        <h2 className="text-xl font-semibold">Welcome to your Dashboard</h2>
+      </main>
+
+      {/* Logout Confirmation Popup */}
+      {isLogoutPopupOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white rounded-lg p-6 w-80 shadow-lg animate-slideInRight">
+            <h3 className="text-lg font-semibold mb-4">Confirm Logout</h3>
+            <p className="mb-6">Are you sure you want to log out?</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setIsLogoutPopupOpen(false)}
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
 
             {/* Avatar */}
             <div>
@@ -299,4 +384,4 @@ const LearnerDashboard = () => {
   );
 };
 
-export default LearnerDashboard;
+//export default LearnerDashboard;
