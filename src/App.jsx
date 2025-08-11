@@ -16,6 +16,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import LearnerProfile from './pages/LearnerProfile';
 import MyCourses from './pages/MyCourses';  // <---- Import added here
 import Help from './pages/Help';
+import SettingsPage from './pages/SettingsPage'; 
+import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
 
 function AppContent() {
   const location = useLocation();
@@ -39,6 +41,12 @@ function AppContent() {
         <Route path="/learner-profile" element={<LearnerProfile />} />
         <Route path="/courses" element={<MyCourses />} />
         <Route path="/help" element={<Help />} />
+
+        {/* Added route for Settings */}
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Added route for Notifications */}
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Routes>
       {showLayout && <Footer />}
     </>

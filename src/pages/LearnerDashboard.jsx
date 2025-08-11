@@ -21,9 +21,9 @@ const LearnerDashboard = () => {
     email: "kokiet@gmail.com",
   });
 
-  // Notification & Messages state
   const [notifOpen, setNotifOpen] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
+  const [notifSeen, setNotifSeen] = useState(false);
 
   const notifRef = useRef();
   const msgRef = useRef();
@@ -40,7 +40,6 @@ const LearnerDashboard = () => {
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
-    
   ];
 
   useEffect(() => {
@@ -49,7 +48,6 @@ const LearnerDashboard = () => {
       setAvatar(savedAvatar);
     }
 
-    // Close dropdowns if clicked outside
     function handleClickOutside(event) {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setNotifOpen(false);
@@ -86,7 +84,6 @@ const LearnerDashboard = () => {
     alert("Profile updated successfully!");
   };
 
-  // Sample notifications and messages
   const notifications = [
     "New lesson added to UI/UX Design Principles",
     "Your assignment for Data Analysis is due tomorrow",
@@ -144,41 +141,27 @@ const LearnerDashboard = () => {
             </p>
           </div>
 
-          {/* Right side icons: notifications, messages, avatar */}
+          {/* Right side icons */}
           <div className="flex items-center space-x-5 relative">
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => {
-                  setNotifOpen(!notifOpen);
+                  navigate("/notifications");
                   setMsgOpen(false);
+                  setNotifOpen(false);
+                  setNotifSeen(true); // Mark as seen
                 }}
                 className="relative text-gray-700 hover:text-gray-900 focus:outline-none"
                 aria-label="Notifications"
               >
                 <HiBell size={24} />
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  {notifications.length}
-                </span>
+                {!notifSeen && notifications.length > 0 && (
+                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {notifications.length}
+                  </span>
+                )}
               </button>
-              {/* Dropdown */}
-              {notifOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                  <div className="p-3 border-b font-semibold text-gray-700">
-                    Notifications
-                  </div>
-                  <ul className="max-h-48 overflow-y-auto">
-                    {notifications.map((note, idx) => (
-                      <li
-                        key={idx}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 cursor-pointer"
-                      >
-                        {note}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
 
             {/* Messages */}
@@ -196,7 +179,6 @@ const LearnerDashboard = () => {
                   {messages.length}
                 </span>
               </button>
-              {/* Dropdown */}
               {msgOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
                   <div className="p-3 border-b font-semibold text-gray-700">
