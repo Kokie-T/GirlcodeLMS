@@ -15,6 +15,8 @@ import LearnerDashboard from './pages/LearnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Learnerprofile from './pages/Learnerprofile';
 import MyCourses from './pages/MyCourses';  // <---- Import added here
+import Assessments from './pages/Assessments'; // create this page
+import AssessmentDetail from './pages/AssessmentDetail';
 import Help from './pages/Help';
 
 function AppContent() {
@@ -38,6 +40,8 @@ function AppContent() {
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/learner-profile" element={<Learnerprofile />} />
         <Route path="/courses" element={<MyCourses />} />
+        <Route path="/assessments" element={<Assessments />} />
+        <Route path="/assessments/:id" element={<AssessmentDetail />} />
         <Route path="/help" element={<Help />} />
       </Routes>
       {showLayout && <Footer />}
