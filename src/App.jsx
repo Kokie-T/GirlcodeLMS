@@ -13,8 +13,10 @@ import CourseContent from './pages/CourseContent';
 import FacilitatorDashboard from './pages/FacilitatorDashboard';
 import LearnerDashboard from './pages/LearnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import LearnerProfile from './pages/LearnerProfile';
+import Learnerprofile from './pages/Learnerprofile';
 import MyCourses from './pages/MyCourses';  // <---- Import added here
+import Assessments from './pages/Assessments'; // create this page
+import AssessmentDetail from './pages/AssessmentDetail';
 import Help from './pages/Help';
 import SettingsPage from './pages/SettingsPage'; 
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
@@ -38,8 +40,10 @@ function AppContent() {
         <Route path="/facilitator-dashboard" element={<FacilitatorDashboard />} />
         <Route path="/learner-dashboard" element={<LearnerDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/learner-profile" element={<LearnerProfile />} />
+        <Route path="/learner-profile" element={<Learnerprofile />} />
         <Route path="/courses" element={<MyCourses />} />
+        <Route path="/assessments" element={<Assessments />} />
+        <Route path="/assessments/:id" element={<AssessmentDetail />} />
         <Route path="/help" element={<Help />} />
 
         {/* Added route for Settings */}
