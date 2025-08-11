@@ -8,21 +8,22 @@ import {
   HiOutlineLogout,
   HiMenu,
   HiX,
+  HiBell,
+  HiChatAlt2,
 } from "react-icons/hi";
 
-export default function LearnerDashboard() {
+const LearnerDashboard = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
-  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [formData, setFormData] = useState({
-    fullname: "Kokie Ratlou",
+    fullname: "kokie Ratlou",
     email: "kokiet@gmail.com",
   });
 
-  // Notification & Messages state
   const [notifOpen, setNotifOpen] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
+  const [notifSeen, setNotifSeen] = useState(false);
 
   const notifRef = useRef();
   const msgRef = useRef();
@@ -33,21 +34,12 @@ export default function LearnerDashboard() {
     { id: 3, title: "UI/UX Design Principles", progress: 20 },
   ];
 
-  // Logout function
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
-
-  // Menu items, logout uses the above function
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Assessments", icon: <HiOutlineBookOpen />, path: "/assessments" }, // new
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
-    
   ];
 
   useEffect(() => {
@@ -56,7 +48,6 @@ export default function LearnerDashboard() {
       setAvatar(savedAvatar);
     }
 
-    // Close dropdowns if clicked outside
     function handleClickOutside(event) {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setNotifOpen(false);
@@ -76,8 +67,9 @@ export default function LearnerDashboard() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAvatar(reader.result);
-        localStorage.setItem("learnerAvatar", reader.result);
+        const base64String = reader.result;
+        setAvatar(base64String);
+        localStorage.setItem("learnerAvatar", base64String);
       };
       reader.readAsDataURL(file);
     }
@@ -92,7 +84,6 @@ export default function LearnerDashboard() {
     alert("Profile updated successfully!");
   };
 
-  // Sample notifications and messages
   const notifications = [
     "New lesson added to UI/UX Design Principles",
     "Your assignment for Data Analysis is due tomorrow",
@@ -107,94 +98,70 @@ export default function LearnerDashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside
+      <div
         className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-blue-100 to-pink-100 shadow-lg p-5 transform transition-transform duration-300 z-50
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         <h2 className="text-2xl font-semibold text-gray-800 mb-8">My LMS</h2>
         <nav className="space-y-3">
-          {menuItems.map((item, idx) =>
-            item.path ? (
-              <button
-                key={idx}
-                onClick={() => {
-                  navigate(item.path);
-                  setSidebarOpen(false);
-                }}
-                className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.name}
-              </button>
-            ) : (
-              <button
-                key={idx}
-                onClick={item.action}
-                className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.name}
-              </button>
-            )
-          )}
+          {menuItems.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                navigate(item.path);
+                setSidebarOpen(false);
+              }}
+              className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition"
+            >
+              <span className="text-lg">{item.icon}</span>
+              {item.name}
+            </button>
+          ))}
         </nav>
-      </aside>
+      </div>
 
       {/* Mobile Menu Toggle */}
       <button
         className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label="Toggle menu"
       >
-        {sidebarOpen ? <HiX size={24} /> : <HiMenu size={24} />}
+        {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
       </button>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 md:ml-64">
+      <div className="flex-1 p-6 md:ml-64">
         {/* Header */}
         <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-semibold text-gray-800">
               Welcome back, {formData.fullname} 👋
             </h1>
-            <p className="text-gray-600 mt-1">Here’s your learning progress at a glance</p>
+            <p className="text-gray-600 mt-1">
+              Here’s your learning progress at a glance
+            </p>
           </div>
 
-          {/* Right side icons: notifications, messages, avatar */}
+          {/* Right side icons */}
           <div className="flex items-center space-x-5 relative">
             {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => {
-                  setNotifOpen(!notifOpen);
+                  navigate("/notifications");
                   setMsgOpen(false);
+                  setNotifOpen(false);
+                  setNotifSeen(true); // Mark as seen
                 }}
                 className="relative text-gray-700 hover:text-gray-900 focus:outline-none"
                 aria-label="Notifications"
               >
                 <HiBell size={24} />
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  {notifications.length}
-                </span>
+                {!notifSeen && notifications.length > 0 && (
+                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {notifications.length}
+                  </span>
+                )}
               </button>
-              {/* Dropdown */}
-              {notifOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                  <div className="p-3 border-b font-semibold text-gray-700">
-                    Notifications
-                  </div>
-                  <ul className="max-h-48 overflow-y-auto">
-                    {notifications.map((note, idx) => (
-                      <li
-                        key={idx}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 cursor-pointer"
-                      >
-                        {note}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
 
             {/* Messages */}
@@ -212,7 +179,6 @@ export default function LearnerDashboard() {
                   {messages.length}
                 </span>
               </button>
-              {/* Dropdown */}
               {msgOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
                   <div className="p-3 border-b font-semibold text-gray-700">
@@ -253,7 +219,9 @@ export default function LearnerDashboard() {
         {/* Stats Section */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white p-5 rounded-lg shadow text-center">
-            <h2 className="text-xl font-bold text-indigo-700">{enrolledCourses.length}</h2>
+            <h2 className="text-xl font-bold text-indigo-700">
+              {enrolledCourses.length}
+            </h2>
             <p className="text-gray-500">Enrolled Courses</p>
           </div>
           <div className="bg-white p-5 rounded-lg shadow text-center">
@@ -268,7 +236,9 @@ export default function LearnerDashboard() {
 
         {/* Courses Section */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Your Courses</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">
+            Your Courses
+          </h2>
           <div className="space-y-4">
             {enrolledCourses.map((course) => (
               <div
@@ -283,7 +253,9 @@ export default function LearnerDashboard() {
                     style={{ width: `${course.progress}%` }}
                   ></div>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{course.progress}% completed</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {course.progress}% completed
+                </p>
               </div>
             ))}
           </div>
@@ -304,46 +276,9 @@ export default function LearnerDashboard() {
             View All Courses
           </button>
         </div>
-      </main>
-
-      {/* Logout Confirmation Popup */}
-      {isLogoutPopupOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-lg animate-slideInRight">
-            <h3 className="text-lg font-semibold mb-4">Confirm Logout</h3>
-            <p className="mb-6">Are you sure you want to log out?</p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setIsLogoutPopupOpen(false)}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <style jsx>{`
-        @keyframes slideInRight {
-          from {
-            transform: translateX(120%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slideInRight {
-          animation: slideInRight 0.3s ease-out;
-        }
-      `}</style>
+      </div>
     </div>
   );
-}
+};
+
+export default LearnerDashboard;
