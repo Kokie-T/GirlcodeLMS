@@ -20,6 +20,8 @@ import AssessmentDetail from './pages/AssessmentDetail';
 import ManageCourses from './pages/ManageCourses';
 import Help from './pages/Help';
 import SettingsPage from './pages/SettingsPage'; 
+import ManageQuizzes from './pages/ManageQuizzes';
+import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
 
 function AppContent() {
@@ -46,6 +48,9 @@ function AppContent() {
         <Route path="/assessments" element={<Assessments />} />
         <Route path="/assessments/:id" element={<AssessmentDetail />} />
         <Route path="/managecourses" element={<ManageCourses/>}/>
+        <Route path="/managequizzes" element={<ManageQuizzes />} />
+        <Route path="/managestudents" element={<ManageStudents />} />
+
         <Route path="/help" element={<Help />} />
 
         {/* Added route for Settings */}
