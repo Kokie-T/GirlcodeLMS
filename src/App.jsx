@@ -17,6 +17,7 @@ import Learnerprofile from './pages/Learnerprofile';
 import MyCourses from './pages/MyCourses';  // <---- Import added here
 import Assessments from './pages/Assessments'; // create this page
 import AssessmentDetail from './pages/AssessmentDetail';
+import ManageCourses from './pages/ManageCourses';
 import Help from './pages/Help';
 import SettingsPage from './pages/SettingsPage'; 
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
@@ -44,6 +45,7 @@ function AppContent() {
         <Route path="/courses" element={<MyCourses />} />
         <Route path="/assessments" element={<Assessments />} />
         <Route path="/assessments/:id" element={<AssessmentDetail />} />
+        <Route path="/managecourses" element={<ManageCourses/>}/>
         <Route path="/help" element={<Help />} />
 
         {/* Added route for Settings */}

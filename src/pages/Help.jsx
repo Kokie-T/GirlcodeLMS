@@ -1,7 +1,36 @@
-import React from "react";
+import React, { useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
+import { db } from "../firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function Help() {
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess("");
+
+    try {
+      await addDoc(collection(db, "supportMessages"), {
+        ...form,
+        createdAt: serverTimestamp(),
+      });
+      setForm({ name: "", email: "", message: "" });
+      setSuccess("Your message has been sent! We'll get back to you soon.");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
@@ -39,10 +68,13 @@ export default function Help() {
         </div>
 
         {/* Contact Form */}
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label className="block mb-2 font-medium text-gray-700">Your Name</label>
             <input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
               type="text"
               placeholder="Enter your name"
               className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-200"
@@ -52,6 +84,9 @@ export default function Help() {
           <div>
             <label className="block mb-2 font-medium text-gray-700">Your Email</label>
             <input
+              name="email"
+              value={form.email}
+              onChange={handleChange}
               type="email"
               placeholder="Enter your email"
               className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-200"
@@ -61,6 +96,9 @@ export default function Help() {
           <div>
             <label className="block mb-2 font-medium text-gray-700">Message</label>
             <textarea
+              name="message"
+              value={form.message}
+              onChange={handleChange}
               placeholder="Type your message here..."
               rows="5"
               className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-200"
@@ -69,11 +107,14 @@ export default function Help() {
           </div>
           <button
             type="submit"
+            disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-blue-200 to-pink-200 text-gray-800 font-semibold rounded-xl shadow hover:scale-105 transition"
           >
-            Send Message
+            {loading ? "Sending..." : "Send Message"}
           </button>
         </form>
+
+        {success && <p className="mt-4 text-green-600">{success}</p>}
       </div>
     </div>
   );

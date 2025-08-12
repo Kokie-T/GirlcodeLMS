@@ -17,8 +17,8 @@ const LearnerDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
   const [formData, setFormData] = useState({
-    fullname: "kokie Ratlou",
-    email: "kokiet@gmail.com",
+    fullname: " ",
+    email: " ",
   });
 
   const [notifOpen, setNotifOpen] = useState(false);
