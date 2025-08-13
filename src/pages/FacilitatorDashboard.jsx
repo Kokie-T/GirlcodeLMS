@@ -50,9 +50,14 @@ export default function FacilitatorDashboard() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div
-        className={`fixed md:static top-0 left-0 h-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white flex flex-col p-5 transform transition-transform duration-300 z-50
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 w-60`}
-      >
+       className={`fixed md:static top-0 left-0 h-full 
+        bg-gradient-to-br from-blue-400 via-cyan-300 to-teal-200 
+         text-white flex flex-col p-5 transform transition-transform 
+         duration-300 ease-in-out z-50
+         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} 
+         md:translate-x-0 w-60`}
+         >
+
         {/* Close button on mobile */}
         <button
           className="md:hidden self-end text-2xl mb-4"
