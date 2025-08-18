@@ -23,6 +23,7 @@ import SettingsPage from './pages/SettingsPage';
 import ManageQuizzes from './pages/ManageQuizzes';
 import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
+import ContactUs from "./pages/contact";
 
 function AppContent() {
   const location = useLocation();
@@ -50,6 +51,7 @@ function AppContent() {
         <Route path="/managecourses" element={<ManageCourses/>}/>
         <Route path="/managequizzes" element={<ManageQuizzes />} />
         <Route path="/managestudents" element={<ManageStudents />} />
+        <Route path="/contact" element={<ContactUs />} />
 
         <Route path="/help" element={<Help />} />
 
