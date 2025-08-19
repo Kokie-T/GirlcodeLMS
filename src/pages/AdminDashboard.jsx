@@ -2,6 +2,12 @@ import React, { useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import Overview from "./Reports";
+import UsersManagement from "./UsersManagement";
+import FacilitatorsManagement from "./FacilitatorsManagement";
+import CoursesManagement from "./ContentManagement";
+import SystemSettings from "./SystemSettings";
+
 import {
   FaUsers,
   FaUserTie,
@@ -30,17 +36,17 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <div>📊 Admin Overview Dashboard (stats, charts etc.)</div>;
+        return <div>📊 <Overview /></div>;
       case "users":
-        return <div>👥 Manage Users Component</div>;
+        return <div>👥 <UsersManagement /></div>;
       case "facilitators":
-        return <div>👨‍🏫 Manage Facilitators Component</div>;
+        return <div>👨‍🏫 <FacilitatorsManagement /></div>;
       case "courses":
-        return <div>📚 Manage Courses Component</div>;
+        return <div>📚 <CoursesManagement /></div>;
       case "settings":
-        return <div>⚙️ System Settings Component</div>;
+        return <div>⚙️ <SystemSettings /></div>;
       default:
-        return <div>📊 Admin Overview Dashboard</div>;
+        return <div>📊 <Overview /></div>;
     }
   };
 
@@ -49,7 +55,7 @@ export default function AdminDashboard() {
       {/* Sidebar */}
       <div
         className={`fixed md:static top-0 left-0 h-full bg-gradient-to-br from-indigo-500 to-purple-400 text-white flex flex-col p-5 transform transition-transform duration-300 z-50
-        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 w-60`}
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 w-64`}
       >
         {/* Close button on mobile */}
         <button
