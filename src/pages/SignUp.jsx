@@ -78,15 +78,6 @@ const SignUp = () => {
           ))}
         </div>
 
-        <button className="btn btn-light border w-100 mb-3">
-          <img
-            src="https://img.icons8.com/color/16/000000/google-logo.png"
-            alt="Google logo"
-            className="me-2"
-          />
-          Sign up with Google
-        </button>
-
         {error && (
           <div className="alert alert-danger py-2" role="alert">
             {error}

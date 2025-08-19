@@ -139,17 +139,6 @@ function Login() {
                 Login
               </Button>
 
-              <div className="text-center mb-3">OR</div>
-
-              <Button
-                variant="outline-danger"
-                className="w-100 d-flex align-items-center justify-content-center mb-3"
-                onClick={handleGoogleLogin}
-              >
-                <FaGoogle className="me-2" />
-                Login with Google
-              </Button>
-
               <div className="text-center">
                 Don't have an account?{" "}
                 <Link to="/signup" className="text-decoration-none">

@@ -38,8 +38,7 @@ const LearnerDashboard = () => {
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
-    { name: "Settings", icon: <HiOutlineCog />, path: "/settings" },
-    { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
+    { name: "Logout", icon: <HiOutlineLogout />, path: "/login" },
   ];
 
   useEffect(() => {

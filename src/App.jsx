@@ -19,7 +19,6 @@ import Assessments from './pages/Assessments'; // create this page
 import AssessmentDetail from './pages/AssessmentDetail';
 import ManageCourses from './pages/ManageCourses';
 import Help from './pages/Help';
-import SettingsPage from './pages/SettingsPage'; 
 import ManageQuizzes from './pages/ManageQuizzes';
 import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
@@ -54,9 +53,6 @@ function AppContent() {
         <Route path="/contact" element={<ContactUs />} />
 
         <Route path="/help" element={<Help />} />
-
-        {/* Added route for Settings */}
-        <Route path="/settings" element={<SettingsPage />} />
 
         {/* Added route for Notifications */}
         <Route path="/notifications" element={<NotificationsPage />} />
