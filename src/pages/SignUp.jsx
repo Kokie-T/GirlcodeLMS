@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth, db } from '../firebase';  // Make sure this is correctly configured!
+import { auth, db } from '../firebase';
 import './SignUp.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -14,12 +14,22 @@ const SignUp = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [info, setInfo] = useState(''); // Info message for email verification
+  const [info, setInfo] = useState('');
   const navigate = useNavigate();
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
+  };
+
+  // Password strength function
+  const getPasswordStrength = (password) => {
+    if (password.length < 6) return 'Weak';
+    const strongRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (strongRegex.test(password)) return 'Strong';
+    return 'Medium';
   };
 
   const handleSubmit = async (e) => {
@@ -27,12 +37,49 @@ const SignUp = () => {
     setError('');
     setInfo('');
 
+    // Name validation
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!nameRegex.test(name)) {
+      setError("Please enter a valid full name (letters and spaces only).");
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    // Email domain restriction
+    const allowedDomains = ["gmail.com", "outlook.com", "yahoo.com"];
+    const emailDomain = email.split("@")[1];
+    if (!allowedDomains.includes(emailDomain)) {
+      setError("Please use a valid Gmail, Outlook, or Yahoo email address.");
+      return;
+    }
+
+    // Password validation
+    const strongPasswordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!strongPasswordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     try {
-      // Create user with email & password
+      // Create user with Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Save additional user data (name and role) in Firestore
+      // Save user info in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         name: name,
@@ -43,24 +90,32 @@ const SignUp = () => {
 
       // Send verification email
       await sendEmailVerification(user);
-
-      // Notify user to check email
-      setInfo('A verification email has been sent to your email address. Please check your inbox.');
+      setInfo('A verification email has been sent. Please check your inbox.');
 
       // Redirect based on role
       if (role === 'Learner') navigate('/learner-dashboard');
       else if (role === 'Facilitator') navigate('/facilitator-dashboard');
       else if (role === 'Admin') navigate('/admin-dashboard');
       else navigate('/');
-
     } catch (err) {
       console.error('Signup error:', err.message);
-      setError(err.message);
+
+      // Friendly error messages
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please log in.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Your password is too weak. Please choose a stronger one.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     }
   };
 
   return (
     <div className="signup-container d-flex justify-content-center align-items-center">
+      <div className="signup-background" /> {/* Blur background */}
       <div className="card p-4 signup-card">
         <h2 className="text-center mb-2">Sign-Up To Get Started</h2>
         <p className="text-center text-muted mb-4">Select your role</p>
@@ -125,7 +180,31 @@ const SignUp = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+            />
+            {password && (
+              <small
+                className={`d-block mt-1 ${
+                  getPasswordStrength(password) === 'Strong'
+                    ? 'text-success'
+                    : getPasswordStrength(password) === 'Medium'
+                    ? 'text-warning'
+                    : 'text-danger'
+                }`}
+              >
+                Strength: {getPasswordStrength(password)}
+              </small>
+            )}
+          </div>
+          <div className="mb-3">
+            <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
+            <input
+              type="password"
+              className="form-control"
+              id="confirmPassword"
+              placeholder="Re-enter password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
             />
           </div>
           <button type="submit" className="btn btn-primary w-100">

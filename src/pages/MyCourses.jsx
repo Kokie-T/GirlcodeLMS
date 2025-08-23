@@ -1,33 +1,57 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaQuestionCircle } from "react-icons/fa";
 import {
   HiOutlineHome,
   HiOutlineBookOpen,
   HiOutlineUser,
-  HiOutlineCog,
   HiOutlineLogout,
   HiMenu,
   HiX,
 } from "react-icons/hi";
+import { db } from "../firebase"; // adjust path to your firebase.js
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const MyCourses = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [courses, setCourses] = useState([]); // 🔹 replaces enrolledCourses
+  const [loading, setLoading] = useState(true);
 
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
+  ];
 
-  ];
-  // Sample courses enrolled by learner
-  const enrolledCourses = [
-    { id: 1, title: "Introduction to Web Development", progress: 75 },
-    { id: 2, title: "Data Analysis with Python", progress: 50 },
-    { id: 3, title: "UI/UX Design Principles", progress: 20 },
-  ];
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        // 🔹 Replace this with actual learnerId (maybe from auth.currentUser.uid)
+        const learnerId = "learner123"; 
+
+        const q = query(
+          collection(db, "courses"),
+          where("assignedLearners", "array-contains", learnerId)
+        );
+
+        const querySnapshot = await getDocs(q);
+
+        const fetchedCourses = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setCourses(fetchedCourses);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -70,28 +94,31 @@ const MyCourses = () => {
         </header>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-         {enrolledCourses.length === 0 ? (
-           <p className="text-gray-600">You have not enrolled in any courses yet.</p>
-         ) : (
-           enrolledCourses.map((course) => (
-            <div
-             key={course.id}
-             className="bg-white p-5 rounded-lg shadow hover:shadow-md transition cursor-pointer"
-             onClick={() => navigate(`/course/${course.id}`)}
-            >
-            <h3 className="text-gray-800 font-medium">{course.title}</h3>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div
-            className="bg-gradient-to-r from-blue-200 to-pink-200 h-2 rounded-full transition-all"
-            style={{ width: `${course.progress}%` }}
-          />
-         </div>
-        <p className="text-sm text-gray-500 mt-1">{course.progress}% completed</p>
-      </div>
-    ))
-  )}
-   </section>
-
+          {loading ? (
+            <p className="text-gray-600">Loading courses...</p>
+          ) : courses.length === 0 ? (
+            <p className="text-gray-600">You have not enrolled in any courses yet.</p>
+          ) : (
+            courses.map((course) => (
+              <div
+                key={course.id}
+                className="bg-white p-5 rounded-lg shadow hover:shadow-md transition cursor-pointer"
+                onClick={() => navigate(`/course/${course.id}`)}
+              >
+                <h3 className="text-gray-800 font-medium">{course.title}</h3>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-gradient-to-r from-blue-200 to-pink-200 h-2 rounded-full transition-all"
+                    style={{ width: `${course.progress || 0}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  {course.progress || 0}% completed
+                </p>
+              </div>
+            ))
+          )}
+        </section>
       </div>
     </div>
   );
