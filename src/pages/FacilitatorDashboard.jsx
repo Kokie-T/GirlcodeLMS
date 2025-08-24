@@ -6,6 +6,7 @@ import ManageCourses from "./ManageCourses";
 import ManageQuizzes from "./ManageQuizzes";
 import ManageStudents from "./ManageStudents";
 import ManageSubmissions from "./ManageSubmissions";
+import Settings from "./Settings";
 import {
   FaBook,
   FaQuestionCircle,
@@ -41,6 +42,8 @@ export default function FacilitatorDashboard() {
         return <ManageStudents />;
       case "submissions":
         return <ManageSubmissions/>
+      case "settings":
+        return <Settings />;
       default:
         return <ManageCourses />;
     }
@@ -112,8 +115,12 @@ export default function FacilitatorDashboard() {
         </button>
 
         <button
-          className="flex items-center gap-3 px-4 py-2 rounded-lg mb-2 hover:bg-white/20 transition"
-          onClick={() => navigate("/settings")}
+          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
+            activeTab === "settings"
+              ? "bg-white text-blue-600 font-semibold"
+              : "hover:bg-white/20"
+         }`}
+          onClick={() => setActiveTab("settings")}
         >
           <FaCog /> Settings
         </button>

@@ -18,7 +18,7 @@ const MyCourses = () => {
   const [loading, setLoading] = useState(true);
 
   const menuItems = [
-    { name: "Dashboard", icon: <HiOutlineHome />, path: "/" },
+    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
     { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
     { name: "Logout", icon: <HiOutlineLogout />, path: "/logout" },
