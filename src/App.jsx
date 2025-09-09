@@ -23,6 +23,8 @@ import ManageQuizzes from './pages/ManageQuizzes';
 import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
 import ContactUs from "./pages/contact";
+import QuizViewer from "./pages/QuizViewer"; // adjust path
+
 
 function AppContent() {
   const location = useLocation();
@@ -49,6 +51,8 @@ function AppContent() {
         <Route path="/assessments/:id" element={<AssessmentDetail />} />
         <Route path="/managecourses" element={<ManageCourses/>}/>
         <Route path="/managequizzes" element={<ManageQuizzes />} />
+        <Route path="/courses" element={<MyCourses />} />
+        <Route path="/course/:courseId/quiz" element={<QuizViewer />} />
         <Route path="/managestudents" element={<ManageStudents />} />
         <Route path="/contact" element={<ContactUs />} />
 
