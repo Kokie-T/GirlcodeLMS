@@ -1,9 +1,68 @@
-.privacy-policy {
-  max-width: 800px;
-  margin: auto;
-  line-height: 1.7;
+/* Privacy Policy Page Styles */
+
+.privacy-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f5f0e1, #d8cfc4);
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.privacy-policy h1, .privacy-policy h2 {
-  color: black;
+.privacy-card {
+  max-width: 800px;
+  background-color: #ffffffcc;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  line-height: 1.6;
+  animation: fadeInUp 0.8s ease forwards;
+}
+
+.privacy-card h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.privacy-card h4 {
+  font-size: 1.2rem;
+  margin-top: 1.2rem;
+}
+
+.privacy-card p {
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* Reuse fadeInUp animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .privacy-card {
+    padding: 2rem;
+  }
+
+  .privacy-card h2 {
+    font-size: 1.5rem;
+  }
+
+  .privacy-card h4 {
+    font-size: 1.1rem;
+  }
+
+  .privacy-card p {
+    font-size: 0.95rem;
+  }
 }

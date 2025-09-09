@@ -7,16 +7,36 @@
 .login-page .bg-white {
   border-radius: 8px;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 420px;
+  transition: min-height 0.3s ease;
+}
+
+/* Slightly taller card when forgot password is active */
+.login-page .forgot-password-active {
+  min-height: 460px;
 }
 
 .login-page h2 {
   font-weight: 600;
+  text-align: center;
+}
+
+.login-logo {
+  width: 90px; /* smaller width */
+  height: auto;
+  display: block;
+  margin: 0 auto 1.5rem auto;
 }
 
 .login-page .btn-primary {
   background-color: #6c63ff;
   border-color: #6c63ff;
   font-weight: 500;
+  border-radius: 8px;
 }
 
 .login-page .btn-primary:hover {
@@ -35,4 +55,19 @@
 
 .login-page a:hover {
   text-decoration: underline;
+}
+
+.code-style-card {
+  animation: fadeInUp 0.8s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

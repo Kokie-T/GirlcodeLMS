@@ -9,218 +9,175 @@ import { auth, db } from '../firebase';
 import './SignUp.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-const SignUp = () => {
-  const [role, setRole] = useState('Learner');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const navigate = useNavigate();
+export default function SignUpPage() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
 
-  const handleRoleChange = (newRole) => {
-    setRole(newRole);
-  };
+  // Live validation: Full Name can only have letters and spaces
+  const handleFullNameChange = (e) => {
+    const value = e.target.value.replace(/[^A-Za-z\s]/g, "");
+    setFullName(value);
 
-  // Password strength function
-  const getPasswordStrength = (password) => {
-    if (password.length < 6) return 'Weak';
-    const strongRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-    if (strongRegex.test(password)) return 'Strong';
-    return 'Medium';
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setInfo('');
-
-    // Name validation
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(name)) {
-      setError("Please enter a valid full name (letters and spaces only).");
-      return;
-    }
-
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
-    // Email domain restriction
-    const allowedDomains = ["gmail.com", "outlook.com", "yahoo.com"];
-    const emailDomain = email.split("@")[1];
-    if (!allowedDomains.includes(emailDomain)) {
-      setError("Please use a valid Gmail, Outlook, or Yahoo email address.");
-      return;
-    }
-
-    // Password validation
-    const strongPasswordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-    if (!strongPasswordRegex.test(password)) {
-      setError(
-        "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
-      );
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    try {
-      // Create user with Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Save user info in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        name: name,
-        email: email,
-        role: role,
-        createdAt: new Date().toISOString(),
+    if (!value) {
+      setErrors((prev) => ({
+        ...prev,
+        fullName: "Full name is required",
+      }));
+    } else {
+      setErrors((prev) => {
+        const { fullName, ...rest } = prev;
+        return rest;
       });
-
-      // Send verification email
-      await sendEmailVerification(user);
-      setInfo('A verification email has been sent. Please check your inbox.');
-
-      // Redirect based on role
-      if (role === 'Learner') navigate('/learner-dashboard');
-      else if (role === 'Facilitator') navigate('/facilitator-dashboard');
-      else if (role === 'Admin') navigate('/admin-dashboard');
-      else navigate('/');
-    } catch (err) {
-      console.error('Signup error:', err.message);
-
-      // Friendly error messages
-      if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered. Please log in.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Invalid email address.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Your password is too weak. Please choose a stronger one.');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
     }
   };
+
+  const getPasswordStrength = () => {
+    if (password.length === 0) return { label: "", color: "" };
+    if (password.length < 6) return { label: "Weak", color: "red", value: 33 };
+    if (password.match(/[A-Z]/) && password.match(/[0-9]/) && password.length >= 8)
+      return { label: "Strong", color: "green", value: 100 };
+    return { label: "Medium", color: "orange", value: 66 };
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!fullName) newErrors.fullName = "Full name is required";
+    if (!email) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Enter a valid email";
+    if (!password) newErrors.password = "Password is required";
+    else if (password.length < 6) newErrors.password = "Password must be at least 6 characters";
+    if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match";
+    if (!agreeTerms) newErrors.agreeTerms = "You must agree to the terms";
+    return newErrors;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const formErrors = validateForm();
+    if (Object.keys(formErrors).length === 0) {
+      alert(`✅ Signup successful for ${fullName} (client-side only)`);
+      setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setAgreeTerms(false);
+    } else {
+      setErrors(formErrors);
+    }
+  };
+
+  const strength = getPasswordStrength();
 
   return (
-    <div className="signup-container d-flex justify-content-center align-items-center">
-      <div className="signup-background" /> {/* Blur background */}
-      <div className="card p-4 signup-card">
-        <h2 className="text-center mb-2">Sign-Up To Get Started</h2>
-        <p className="text-center text-muted mb-4">Select your role</p>
+    <div className="signup-container">
+      <div className="signup-card code-style-card">
 
-        <div className="btn-group d-flex mb-3" role="group">
-          {['Learner', 'Facilitator', 'Admin'].map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`btn ${role === r ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => handleRoleChange(r)}
-            >
-              {r}
-            </button>
-          ))}
+        {/* Logo */}
+        <div className="text-center mb-3">
+          <img src="/LMSPro.png" alt="LMS Pro Logo" style={{ width: "120px", height: "auto" }} />
         </div>
 
-        {error && (
-          <div className="alert alert-danger py-2" role="alert">
-            {error}
-          </div>
-        )}
-
-        {info && (
-          <div className="alert alert-info py-2" role="alert">
-            {info}
-          </div>
-        )}
-
+        <h2 className="mb-3 text-center fw-bold">Sign Up for LMS Pro</h2>
         <form onSubmit={handleSubmit}>
+
+          {/* Full Name */}
           <div className="mb-3">
-            <label htmlFor="name" className="form-label">Full Name</label>
+            <label>Full Name</label>
             <input
               type="text"
-              className="form-control"
-              id="name"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              className={`form-control ${errors.fullName ? "is-invalid" : ""}`}
+              value={fullName}
+              onChange={handleFullNameChange}
+              placeholder="John Doe"
             />
+            {errors.fullName && <div className="invalid-feedback">{errors.fullName}</div>}
           </div>
+
+          {/* Email */}
           <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email address</label>
+            <label>Email</label>
             <input
               type="email"
-              className="form-control"
-              id="email"
-              placeholder="email@example.com"
+              className={`form-control ${errors.email ? "is-invalid" : ""}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
+              placeholder="you@example.com"
             />
+            {errors.email && <div className="invalid-feedback">{errors.email}</div>}
           </div>
+
+          {/* Password */}
           <div className="mb-3">
-            <label htmlFor="password" className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              id="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            {password && (
-              <small
-                className={`d-block mt-1 ${
-                  getPasswordStrength(password) === 'Strong'
-                    ? 'text-success'
-                    : getPasswordStrength(password) === 'Medium'
-                    ? 'text-warning'
-                    : 'text-danger'
-                }`}
+            <label>Password</label>
+            <div className="input-group">
+              <input
+                type={showPassword ? "text" : "password"}
+                className={`form-control ${errors.password ? "is-invalid" : ""}`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+              />
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setShowPassword(!showPassword)}
               >
-                Strength: {getPasswordStrength(password)}
-              </small>
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            {errors.password && <div className="invalid-feedback d-block">{errors.password}</div>}
+            {strength.label && (
+              <div className="mt-1">
+                <div className="progress" style={{ height: "8px" }}>
+                  <div
+                    className="progress-bar"
+                    style={{
+                      width: `${strength.value}%`,
+                      backgroundColor: strength.color,
+                    }}
+                  ></div>
+                </div>
+                <small style={{ color: strength.color }}>Strength: {strength.label}</small>
+              </div>
             )}
           </div>
+
+          {/* Confirm Password */}
           <div className="mb-3">
-            <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
+            <label>Confirm Password</label>
             <input
-              type="password"
-              className="form-control"
-              id="confirmPassword"
-              placeholder="Re-enter password"
+              type={showPassword ? "text" : "password"}
+              className={`form-control ${errors.confirmPassword ? "is-invalid" : ""}`}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              placeholder="Confirm password"
             />
+            {errors.confirmPassword && <div className="invalid-feedback">{errors.confirmPassword}</div>}
           </div>
-          <button type="submit" className="btn btn-primary w-100">
-            Create {role.toLowerCase()} account
-          </button>
+
+          {/* Terms */}
+          <div className="form-check mb-3">
+            <input
+              type="checkbox"
+              className={`form-check-input ${errors.agreeTerms ? "is-invalid" : ""}`}
+              checked={agreeTerms}
+              onChange={(e) => setAgreeTerms(e.target.checked)}
+              id="termsCheck"
+            />
+            <label className="form-check-label" htmlFor="termsCheck">
+              I agree to the <Link to="/privacy">PrivacyPolicy</Link>
+            </label>
+            {errors.agreeTerms && <div className="invalid-feedback d-block">{errors.agreeTerms}</div>}
+          </div>
+
+          <button type="submit" className="btn btn-primary w-100 py-2">Sign Up</button>
         </form>
 
         <p className="text-center mt-3">
-          Already have an account?{' '}
-          <Link to="/login" className="text-decoration-none">
-            Log in
-          </Link>
+          Already have an account? <Link to="/login">Login</Link>
         </p>
       </div>
     </div>
   );
-};
-
-export default SignUp;
+}

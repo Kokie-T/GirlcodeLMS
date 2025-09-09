@@ -1,49 +1,35 @@
-import React from 'react';
-import './PrivacyPolicy.css';
 
-const PrivacyPolicy = () => {
+import React from "react";
+import { Link } from "react-router-dom";
+import "./PrivacyPolicy.css";
+
+export default function PrivacyPolicy() {
   return (
-    <div className="privacy-policy container py-5">
-      <h1 className="mb-4">Privacy Policy</h1>
-      <p>
-        At LMS Pro, your privacy is important to us. This Privacy Policy outlines the
-        types of personal information we collect, how we use it, and how we safeguard it.
-      </p>
+    <div className="privacy-container">
+      <div className="privacy-card">
+        <h2 className="mb-3">Privacy Policy</h2>
+        <p>
+          At LMS Pro, we value your privacy. This policy explains how we collect, use, and protect your information.
+        </p>
+        <h4>1. Information Collection</h4>
+        <p>We collect personal information such as name, email, and usage data to improve your learning experience.</p>
 
-      <h2>1. Information We Collect</h2>
-      <ul>
-        <li>Personal details like name, email address, phone number</li>
-        <li>Learning progress and activity</li>
-        <li>Communication history with facilitators</li>
-      </ul>
+        <h4>2. Use of Information</h4>
+        <p>Your information is used to personalize content, track progress, and provide support.</p>
 
-      <h2>2. How We Use Your Information</h2>
-      <ul>
-        <li>To create and manage user accounts</li>
-        <li>To personalize learning experiences</li>
-        <li>To communicate important announcements and updates</li>
-        <li>To comply with legal obligations (e.g., POPIA compliance)</li>
-      </ul>
+        <h4>3. Data Security</h4>
+        <p>We implement reasonable measures to protect your data against unauthorized access or disclosure.</p>
 
-      <h2>3. Data Security</h2>
-      <p>
-        We use industry-standard measures to protect your data from unauthorized access,
-        alteration, or disclosure.
-      </p>
+        <h4>4. Sharing of Information</h4>
+        <p>We do not sell your personal data. Information may be shared only with trusted service providers.</p>
 
-      <h2>4. POPI Act Compliance</h2>
-      <p>
-        LMS Pro is fully compliant with the Protection of Personal Information Act (POPIA). Users
-        are required to accept the POPIA terms during account creation.
-      </p>
+        <h4>5. Changes to Policy</h4>
+        <p>We may update this privacy policy occasionally. Users will be notified of major changes.</p>
 
-      <h2>5. Contact Us</h2>
-      <p>
-        If you have any questions about this Privacy Policy, please contact us at
-        privacy@lmspro.co.za.
-      </p>
+        <p className="text-center mt-3">
+          <Link to="/">Back to Home</Link>
+        </p>
+      </div>
     </div>
   );
-};
-
-export default PrivacyPolicy;
+}
