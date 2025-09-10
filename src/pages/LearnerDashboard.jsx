@@ -137,7 +137,6 @@ export default function LearnerDashboard() {
     navigate("/login");
   };
 
-  if (loading) return <p className="p-6 text-gray-600">Loading dashboard...</p>;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -179,11 +178,11 @@ export default function LearnerDashboard() {
         {/* Courses Grid */}
         <section className="grid md:grid-cols-2 gap-6">
           {enrolledCourses.length === 0 && <p>You have not enrolled in any courses yet.</p>}
-          {enrolledCourses.map((course) => {
-            const avgScore = results[course.id] ?? 0;
-            const courseHistory = history[course.id] ?? [];
-            const isExpanded = expanded[course.id];
-            const contentProgress = course.progress || 0;
+          {enrolledCourses.map((courses) => {
+            const avgScore = results[courses.id] ?? 0;
+            const courseHistory = history[courses.id] ?? [];
+            const isExpanded = expanded[courses.id];
+            const contentProgress = courses.progress || 0;
             const totalWidth = Math.min(contentProgress + avgScore, 100);
             const contentWidth = Math.min(contentProgress, totalWidth);
             const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
@@ -191,8 +190,8 @@ export default function LearnerDashboard() {
             return (
               <div key={course.id} className="bg-white p-5 rounded-lg shadow hover:shadow-md transition">
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-gray-800 font-medium">{course.title}</h3>
-                  <button onClick={() => setExpanded(prev => ({ ...prev, [course.id]: !prev[course.id] }))} className="text-blue-500 text-sm">{isExpanded ? "Hide History" : "Show History"}</button>
+                  <h3 className="text-gray-800 font-medium">{courses.title}</h3>
+                  <button onClick={() => setExpanded(prev => ({ ...prev, [courses.id]: !prev[courses.id] }))} className="text-blue-500 text-sm">{isExpanded ? "Hide History" : "Show History"}</button>
                 </div>
 
                 <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
@@ -201,7 +200,7 @@ export default function LearnerDashboard() {
                 </div>
                 <p className="text-sm text-gray-500 mb-3">Content: {contentProgress}%, Quiz Avg: {avgScore}%</p>
 
-                <button onClick={() => navigate(`/quiz/${course.id}`)} className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 rounded-lg hover:opacity-90 transition mb-2">Take Quiz</button>
+                <button onClick={() => navigate(`/quiz/${courses.id}`)} className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 rounded-lg hover:opacity-90 transition mb-2">Take Quiz</button>
 
                 {isExpanded && courseHistory.length > 0 && (
                   <div className="mt-3 bg-gray-50 p-3 rounded-lg">

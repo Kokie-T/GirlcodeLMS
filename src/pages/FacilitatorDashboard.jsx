@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
 import { db } from "../firebase";
 import EnrollStudent from "./Enrollstudent";
+import Settings from "./Settings";
 import {
   collection,
   getDocs,
@@ -37,81 +38,86 @@ export default function FacilitatorDashboard() {
   const [submissions, setSubmissions] = useState([]);
 
   // --------------------- FETCH DATA ---------------------
-  useEffect(() => {
-    if (!user) return;
+// Fetch courses and quizzes (independent of courses)
+useEffect(() => {
+  if (!user) return;
 
-    const fetchCourses = async () => {
-      try {
-        const q = query(
-          collection(db, "courses"),
-          where("facilitatorId", "==", user.uid)
-        );
-        const snap = await getDocs(q);
-        setCourses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (err) {
-        console.error("Error fetching courses:", err);
-      }
-    };
-
-    const fetchQuizzes = async () => {
-      try {
-        const q = query(
-          collection(db, "quizzes"),
-          where("facilitatorId", "==", user.uid)
-        );
-        const snap = await getDocs(q);
-        setQuizzes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (err) {
-        console.error("Error fetching quizzes:", err);
-      }
-    };
-
-    const fetchStudents = async () => {
-      try {
-        const courseIds = courses.map(c => c.id);
-        if (courseIds.length === 0) return;
-
-        const q = query(
-          collection(db, "users"),
-          where("courses", "array-contains-any", courseIds)
-        );
-        const snap = await getDocs(q);
-        setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (err) {
-        console.error("Error fetching students:", err);
-      }
-    };
-
-    const fetchSubmissions = async () => {
-      try {
-        const q = query(
-          collection(db, "submissions"),
-          where("facilitatorId", "==", user.uid),
-          orderBy("submittedAt", "desc")
-        );
-        const snap = await getDocs(q);
-        setSubmissions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      } catch (err) {
-        console.error("Error fetching submissions:", err);
-      }
-    };
-
-    fetchCourses();
-    fetchQuizzes();
-    fetchStudents();
-    fetchSubmissions();
-  }, [user, courses.length]);
-
-  // --------------------- LOGOUT ---------------------
-  const handleLogout = async () => {
+  const fetchCourses = async () => {
     try {
-      await signOut(auth);
-      navigate("/login");
+      const q = query(collection(db, "courses"), where("facilitatorId", "==", user.uid));
+      const snap = await getDocs(q);
+      setCourses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
-      console.error("Logout failed:", err);
+      console.error("Error fetching courses:", err);
     }
   };
 
+  const fetchQuizzes = async () => {
+    try {
+      const q = query(collection(db, "quizzes"), where("facilitatorId", "==", user.uid));
+      const snap = await getDocs(q);
+      setQuizzes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching quizzes:", err);
+    }
+  };
+
+  fetchCourses();
+  fetchQuizzes();
+}, [user]);
+
+// Fetch students **after courses are loaded**
+useEffect(() => {
+  if (!user || courses.length === 0) return;
+
+  const fetchStudents = async () => {
+    try {
+      const courseIds = courses.map(c => c.id);
+      const q = query(collection(db, "users"), where("courses", "array-contains-any", courseIds));
+      const snap = await getDocs(q);
+      setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    }
+  };
+
+  fetchStudents();
+}, [user, courses]); // <-- run when courses change
+
+// Fetch submissions (independent of courses)
+useEffect(() => {
+  if (!user) return;
+
+  const fetchSubmissions = async () => {
+    try {
+      const q = query(
+        collection(db, "submissions"),
+        where("facilitatorId", "==", user.uid),
+        orderBy("submittedAt", "desc")
+      );
+      const snap = await getDocs(q);
+      setSubmissions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error("Error fetching submissions:", err);
+    }
+  };
+
+  fetchSubmissions();
+}, [user]);
+
+
+  // --------------------- LOGOUT ---------------------
+  const confirmLogout = async () => {
+     try {
+       await signOut(auth);
+     } catch (err) {
+       console.warn("Sign out failed:", err);
+     }
+     localStorage.clear();
+     setShowLogoutConfirm(false);
+     navigate("/login");
+   };
+ 
   // --------------------- RENDER TABS ---------------------
   const renderCoursesTab = () => {
     if (courses.length === 0) return <p className="text-gray-600">No courses yet.</p>;
@@ -261,11 +267,11 @@ export default function FacilitatorDashboard() {
       case "students":
         return renderStudentsTab();
       case "enroll":
-        return <EnrollStudent />;
+        return <EnrollStudent students={students} courses={courses}/>;
       case "submissions":
         return renderSubmissionsTab();
       case "settings":
-        return <p>Settings Tab</p>;
+        return <Settings/>;
       default:
         return renderCoursesTab();
     }
@@ -377,9 +383,7 @@ export default function FacilitatorDashboard() {
                 Cancel
               </button>
               <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
-              >
+                onClick={() => setIsSidebarOpen(true)}>
                 Logout
               </button>
             </div>

@@ -15,12 +15,14 @@ export default function LearnerSettings() {
   const [avatar, setAvatar] = useState(null);
   const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
   const avatarInputRef = useRef(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
 
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Logout", icon: <HiOutlineLogout />, action: async () => { await auth.signOut(); navigate("/login"); } },
-  ];
+    { name: "Logout", icon: <HiOutlineLogout />, action: () => setShowLogoutConfirm(true) }, 
+   ];
 
   // Fetch user profile
   useEffect(() => {
@@ -80,6 +82,16 @@ export default function LearnerSettings() {
       alert(err.message || "Failed to update profile");
     }
   };
+  const confirmLogout = async () => {
+  try {
+    await auth.signOut();
+    navigate("/login");
+  } catch (err) {
+    console.error("Logout failed:", err);
+    alert("Logout failed. Try again.");
+  }
+};
+
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -103,6 +115,19 @@ export default function LearnerSettings() {
           ))}
         </nav>
       </div>
+      {/* Logout Confirmation */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirm Logout</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition">Cancel</button>
+              <button onClick={confirmLogout} className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition">Logout</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile toggle */}
       <button className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow" onClick={() => setSidebarOpen(!sidebarOpen)}>
