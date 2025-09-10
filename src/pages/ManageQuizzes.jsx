@@ -7,17 +7,32 @@ import {
   doc,
   onSnapshot,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
 
 export default function ManageQuizzes() {
   const [quizzes, setQuizzes] = useState([]);
   const [newQuizTitle, setNewQuizTitle] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Real-time subscription to quizzes
+  // 🔹 Fetch courses for dropdown
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "courses"));
+        setCourses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      } catch (err) {
+        console.error("Error fetching courses:", err);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  // 🔹 Real-time subscription to quizzes
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "quizzes"),
@@ -37,15 +52,18 @@ export default function ManageQuizzes() {
     return () => unsubscribe();
   }, []);
 
-  // Add a manual quiz
+  // 🔹 Add a manual quiz
   const handleAddQuiz = async () => {
-    if (!newQuizTitle.trim()) return;
+    if (!newQuizTitle.trim() || !selectedCourse) {
+      setError("Please provide a title and select a course.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       await addDoc(collection(db, "quizzes"), {
         title: newQuizTitle,
-        courseId: "manual",
+        courseId: selectedCourse,
         questions: [],
         createdAt: serverTimestamp(),
       });
@@ -57,7 +75,7 @@ export default function ManageQuizzes() {
     setLoading(false);
   };
 
-  // Auto-generate quiz from Vercel API
+  // 🔹 Auto-generate quiz from API
   const handleAutoGenerateQuiz = async () => {
     if (!selectedCourse) {
       setError("Please select a course first.");
@@ -66,7 +84,6 @@ export default function ManageQuizzes() {
     setLoading(true);
     setError(null);
     try {
-      // 👇 Use your deployed Vercel endpoint
       const res = await fetch("https://your-app.vercel.app/api/generateQuiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,11 +93,10 @@ export default function ManageQuizzes() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to generate quiz");
 
-      // Save generated quiz to Firestore
       await addDoc(collection(db, "quizzes"), {
         title: `Auto Quiz - ${selectedCourse}`,
         courseId: selectedCourse,
-        questions: data.questions, // <-- directly save questions
+        questions: data.questions,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
@@ -90,7 +106,7 @@ export default function ManageQuizzes() {
     setLoading(false);
   };
 
-  // Delete quiz
+  // 🔹 Delete quiz
   const handleDeleteQuiz = async (id) => {
     setDeletingId(id);
     try {
@@ -110,6 +126,25 @@ export default function ManageQuizzes() {
       {error && (
         <div className="mb-4 bg-red-500/80 p-3 rounded text-sm">{error}</div>
       )}
+
+      {/* Course Dropdown */}
+      <div className="mb-6">
+        <label className="block mb-2 text-sm font-semibold">
+          Select Course
+        </label>
+        <select
+          value={selectedCourse}
+          onChange={(e) => setSelectedCourse(e.target.value)}
+          className="p-2 rounded text-black w-full focus:outline-none focus:ring-2 focus:ring-yellow-300"
+        >
+          <option value="">-- Choose a course --</option>
+          {courses.map((course) => (
+            <option key={course.id} value={course.id}>
+              {course.title}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Manual Add Quiz */}
       <div className="mb-6 flex space-x-2">
@@ -132,20 +167,12 @@ export default function ManageQuizzes() {
 
       {/* Auto-Generate Quiz */}
       <div className="mb-6 flex space-x-2">
-        <input
-          type="text"
-          placeholder="Course name"
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
-          className="p-2 rounded text-black flex-1 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-          disabled={loading}
-        />
         <button
           onClick={handleAutoGenerateQuiz}
-          className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600 disabled:opacity-50 transition"
+          className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600 disabled:opacity-50 transition w-full"
           disabled={loading}
         >
-          {loading ? "Generating..." : "Auto-Generate"}
+          {loading ? "Generating..." : "Auto-Generate from Course"}
         </button>
       </div>
 
@@ -159,7 +186,12 @@ export default function ManageQuizzes() {
               key={quiz.id}
               className="flex justify-between items-center bg-white text-black p-4 rounded shadow hover:shadow-lg transition"
             >
-              <span>{quiz.title}</span>
+              <span>
+                {quiz.title}{" "}
+                <span className="text-sm text-gray-500">
+                  (Course: {quiz.courseId})
+                </span>
+              </span>
               <button
                 onClick={() => handleDeleteQuiz(quiz.id)}
                 className={`px-3 py-1 rounded transition ${

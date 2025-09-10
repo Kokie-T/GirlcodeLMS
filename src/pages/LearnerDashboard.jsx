@@ -1,92 +1,35 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  HiOutlineHome,
-  HiOutlineBookOpen,
-  HiOutlineUser,
-  HiOutlineCog,
-  HiOutlineLogout,
-  HiMenu,
-  HiX,
-  HiBell,
-  HiChatAlt2,
-} from "react-icons/hi";
+import { getAuth, signOut } from "firebase/auth";
+import { db } from "../firebase";
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { HiOutlineHome, HiOutlineBookOpen, HiOutlineUser, HiOutlineLogout, HiMenu, HiX, HiBell, HiChatAlt2 } from "react-icons/hi";
 
-const LearnerDashboard = () => {
+export default function LearnerDashboard() {
   const navigate = useNavigate();
+  const auth = getAuth();
+  const user = auth.currentUser;
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
-  const [formData, setFormData] = useState({
-    fullname: " ",
-    email: " ",
-  });
-
+  const [formData, setFormData] = useState({ fullname: "", email: "" });
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [results, setResults] = useState({});
+  const [history, setHistory] = useState({});
+  const [expanded, setExpanded] = useState({});
   const [notifOpen, setNotifOpen] = useState(false);
   const [msgOpen, setMsgOpen] = useState(false);
   const [notifSeen, setNotifSeen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const notifRef = useRef();
-  const msgRef = useRef();
-
-  const enrolledCourses = [
-    { id: 1, title: "Introduction to Web Development", progress: 75 },
-    { id: 2, title: "Data Analysis with Python", progress: 50 },
-    { id: 3, title: "UI/UX Design Principles", progress: 20 },
-  ];
-
-  const menuItems = [
-    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
-    { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Profile", icon: <HiOutlineUser />, path: "/learner-profile" },
-    { name: "Logout", icon: <HiOutlineLogout />, path: "/login" },
-  ];
-
-  useEffect(() => {
-    const savedAvatar = localStorage.getItem("learnerAvatar");
-    if (savedAvatar) {
-      setAvatar(savedAvatar);
-    }
-
-    function handleClickOutside(event) {
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setNotifOpen(false);
-      }
-      if (msgRef.current && !msgRef.current.contains(event.target)) {
-        setMsgOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setAvatar(base64String);
-        localStorage.setItem("learnerAvatar", base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    alert("Profile updated successfully!");
-  };
+  const notifRef = useRef(null);
+  const msgRef = useRef(null);
+  const avatarInputRef = useRef(null);
 
   const notifications = [
     "New lesson added to UI/UX Design Principles",
     "Your assignment for Data Analysis is due tomorrow",
-    "Course Introduction to Web Development updated",
   ];
 
   const messages = [
@@ -94,24 +37,116 @@ const LearnerDashboard = () => {
     { from: "Admin", text: "Your profile has been updated." },
   ];
 
+  const menuItems = [
+    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
+    { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
+    { name: "Settings", icon: <HiOutlineUser />, path: "/learner-settings" },
+    { name: "Logout", icon: <HiOutlineLogout />, action: () => setShowLogoutConfirm(true) },
+  ];
+
+  // Fetch learner data from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchLearnerData = async () => {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          setFormData({ fullname: data.fullname || "", email: data.email || user.email });
+          setAvatar(data.avatar || null);
+          setEnrolledCourses(data.courses || []);
+        } else {
+          // Create default document if none exists
+          await setDoc(userRef, {
+            fullname: user.displayName || "",
+            email: user.email,
+            avatar: "",
+            courses: [],
+          });
+        }
+
+        // Fetch quiz results
+        const qResults = query(
+          collection(db, "results"),
+          where("userId", "==", user.uid),
+          orderBy("takenAt", "desc")
+        );
+        const resultSnap = await getDocs(qResults);
+
+        let resMap = {};
+        let historyMap = {};
+        resultSnap.forEach((doc) => {
+          const data = doc.data();
+          if (!historyMap[data.courseId]) historyMap[data.courseId] = [];
+          historyMap[data.courseId].push({ score: data.score, date: data.takenAt?.toDate?.() || new Date() });
+
+          if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
+          resMap[data.courseId].total += data.score;
+          resMap[data.courseId].count += 1;
+        });
+
+        Object.keys(resMap).forEach((courseId) => {
+          resMap[courseId] = Math.round(resMap[courseId].total / resMap[courseId].count);
+        });
+
+        setResults(resMap);
+        setHistory(historyMap);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching learner data:", err);
+        setLoading(false);
+      }
+    };
+
+    fetchLearnerData();
+  }, [user]);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result;
+      setAvatar(base64String);
+
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { avatar: base64String });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!user) return;
+    const userRef = doc(db, "users", user.uid);
+    await updateDoc(userRef, { fullname: formData.fullname });
+    alert("Profile updated successfully!");
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.warn("Sign out failed:", err);
+    }
+    localStorage.clear();
+    setShowLogoutConfirm(false);
+    navigate("/login");
+  };
+
+  if (loading) return <p className="p-6 text-gray-600">Loading dashboard...</p>;
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-blue-100 to-pink-100 shadow-lg p-5 transform transition-transform duration-300 z-50
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
-      >
+      <div className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-blue-100 to-pink-100 shadow-lg p-5 transform transition-transform duration-300 z-50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         <h2 className="text-2xl font-semibold text-gray-800 mb-8">My LMS</h2>
         <nav className="space-y-3">
           {menuItems.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                navigate(item.path);
-                setSidebarOpen(false);
-              }}
-              className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition"
-            >
+            <button key={idx} onClick={() => { item.action ? item.action() : navigate(item.path); setSidebarOpen(false); }} className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition">
               <span className="text-lg">{item.icon}</span>
               {item.name}
             </button>
@@ -119,165 +154,89 @@ const LearnerDashboard = () => {
         </nav>
       </div>
 
-      {/* Mobile Menu Toggle */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
+      {/* Mobile Menu */}
+      <button className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow" onClick={() => setSidebarOpen(!sidebarOpen)}>
         {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
       </button>
 
-      {/* Main Content */}
+      {/* Dashboard Content */}
       <div className="flex-1 p-6 md:ml-64">
-        {/* Header */}
         <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">
-              Welcome back, {formData.fullname} 👋
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Here’s your learning progress at a glance
-            </p>
+            <h1 className="text-2xl font-semibold text-gray-800">Welcome back, {formData.fullname || "Learner"} 👋</h1>
+            <p className="text-gray-600 mt-1">Here’s your learning progress at a glance</p>
           </div>
 
-          {/* Right side icons */}
           <div className="flex items-center space-x-5 relative">
-            {/* Notifications */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => {
-                  navigate("/notifications");
-                  setMsgOpen(false);
-                  setNotifOpen(false);
-                  setNotifSeen(true); // Mark as seen
-                }}
-                className="relative text-gray-700 hover:text-gray-900 focus:outline-none"
-                aria-label="Notifications"
-              >
-                <HiBell size={24} />
-                {!notifSeen && notifications.length > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                    {notifications.length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div className="relative" ref={msgRef}>
-              <button
-                onClick={() => {
-                  setMsgOpen(!msgOpen);
-                  setNotifOpen(false);
-                }}
-                className="relative text-gray-700 hover:text-gray-900 focus:outline-none"
-                aria-label="Messages"
-              >
-                <HiChatAlt2 size={24} />
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                  {messages.length}
-                </span>
-              </button>
-              {msgOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                  <div className="p-3 border-b font-semibold text-gray-700">
-                    Messages
-                  </div>
-                  <ul className="max-h-48 overflow-y-auto">
-                    {messages.map((msg, idx) => (
-                      <li
-                        key={idx}
-                        className="px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-gray-100"
-                      >
-                        <p className="font-semibold text-gray-800">{msg.from}</p>
-                        <p className="text-gray-600 text-sm">{msg.text}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
             {/* Avatar */}
-            <div>
-              {avatar ? (
-                <img
-                  src={avatar}
-                  alt="Avatar"
-                  className="w-12 h-12 rounded-full object-cover border-1 border-pink shadow"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl border-2 border-white shadow">
-                  {formData.fullname.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <div onClick={() => avatarInputRef.current && avatarInputRef.current.click()}>
+              {avatar ? <img src={avatar} alt="Avatar" className="w-12 h-12 rounded-full object-cover cursor-pointer border-2 border-white shadow" /> : <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl cursor-pointer border-2 border-white shadow">{formData.fullname?.charAt(0).toUpperCase() || "L"}</div>}
             </div>
+            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
           </div>
         </header>
 
-        {/* Stats Section */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white p-5 rounded-lg shadow text-center">
-            <h2 className="text-xl font-bold text-indigo-700">
-              {enrolledCourses.length}
-            </h2>
-            <p className="text-gray-500">Enrolled Courses</p>
-          </div>
-          <div className="bg-white p-5 rounded-lg shadow text-center">
-            <h2 className="text-xl font-bold text-indigo-700">12</h2>
-            <p className="text-gray-500">Completed Lessons</p>
-          </div>
-          <div className="bg-white p-5 rounded-lg shadow text-center">
-            <h2 className="text-xl font-bold text-indigo-700">3h 45m</h2>
-            <p className="text-gray-500">Study Time</p>
-          </div>
-        </section>
+        {/* Courses Grid */}
+        <section className="grid md:grid-cols-2 gap-6">
+          {enrolledCourses.length === 0 && <p>You have not enrolled in any courses yet.</p>}
+          {enrolledCourses.map((course) => {
+            const avgScore = results[course.id] ?? 0;
+            const courseHistory = history[course.id] ?? [];
+            const isExpanded = expanded[course.id];
+            const contentProgress = course.progress || 0;
+            const totalWidth = Math.min(contentProgress + avgScore, 100);
+            const contentWidth = Math.min(contentProgress, totalWidth);
+            const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
 
-        {/* Courses Section */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Your Courses
-          </h2>
-          <div className="space-y-4">
-            {enrolledCourses.map((course) => (
-              <div
-                key={course.id}
-                className="bg-white p-5 rounded-lg shadow hover:shadow-md transition cursor-pointer"
-                onClick={() => navigate(`/course/${course.id}`)}
-              >
-                <h3 className="text-gray-800 font-medium">{course.title}</h3>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-gradient-to-r from-blue-200 to-pink-200 h-2 rounded-full transition-all"
-                    style={{ width: `${course.progress}%` }}
-                  ></div>
+            return (
+              <div key={course.id} className="bg-white p-5 rounded-lg shadow hover:shadow-md transition">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-gray-800 font-medium">{course.title}</h3>
+                  <button onClick={() => setExpanded(prev => ({ ...prev, [course.id]: !prev[course.id] }))} className="text-blue-500 text-sm">{isExpanded ? "Hide History" : "Show History"}</button>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  {course.progress}% completed
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 mt-8">
-          <button
-            onClick={() => navigate("/course/1")}
-            className="px-5 py-2 rounded-lg bg-gradient-to-r from-blue-200 to-pink-200 font-medium text-gray-800 shadow hover:scale-105 transition"
-          >
-            Continue Learning
-          </button>
-          <button
-            onClick={() => navigate("/courses")}
-            className="px-5 py-2 rounded-lg border border-gray-300 bg-white font-medium text-gray-700 hover:bg-gray-50 transition"
-          >
-            View All Courses
-          </button>
-        </div>
+                <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
+                  <div className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out" style={{ width: `${contentWidth}%` }} />
+                  <div className="absolute left-0 top-0 h-4 bg-pink-400 transition-all duration-700 ease-out opacity-70" style={{ width: `${quizWidth}%` }} />
+                </div>
+                <p className="text-sm text-gray-500 mb-3">Content: {contentProgress}%, Quiz Avg: {avgScore}%</p>
+
+                <button onClick={() => navigate(`/quiz/${course.id}`)} className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 rounded-lg hover:opacity-90 transition mb-2">Take Quiz</button>
+
+                {isExpanded && courseHistory.length > 0 && (
+                  <div className="mt-3 bg-gray-50 p-3 rounded-lg">
+                    <h4 className="font-semibold mb-2">Past Quiz Attempts</h4>
+                    <ul className="space-y-2 text-gray-700 text-sm">
+                      {courseHistory.map((attempt, idx) => (
+                        <li key={idx} className="flex justify-between border-b border-gray-200 pb-1">
+                          <span>Attempt {courseHistory.length - idx}</span>
+                          <span>{attempt.score}% - {attempt.date.toLocaleDateString()} {attempt.date.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {isExpanded && courseHistory.length === 0 && <p className="mt-2 text-gray-500 text-sm">No quiz attempts yet.</p>}
+              </div>
+            );
+          })}
+        </section>
       </div>
+
+      {/* Logout Confirmation */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirm Logout</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition">Cancel</button>
+              <button onClick={confirmLogout} className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition">Logout</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default LearnerDashboard;
+}

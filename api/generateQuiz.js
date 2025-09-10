@@ -1,44 +1,69 @@
-// api/generateQuiz.js
+// pages/api/generateQuiz.js
+import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+// Initialize OpenAI with server-only API key
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
+export async function POST(req) {
   try {
-    const { course } = JSON.parse(req.body);
+    const { course } = await req.json();
 
+    // Validate input
     if (!course) {
-      return res.status(400).json({ message: "Course is required" });
+      return NextResponse.json(
+        { message: "Course is required" },
+        { status: 400 }
+      );
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Prompt GPT to generate structured quiz JSON
+    const prompt = `
+      Generate 5 multiple-choice quiz questions for the course: "${course}".
+      Each question should have:
+      - "question": string
+      - "options": array of 4 strings
+      - "correctAnswer": one of the options
+      Return ONLY valid JSON in this format:
+      {
+        "questions": [
+          {
+            "question": "...",
+            "options": ["A", "B", "C", "D"],
+            "correctAnswer": "A"
+          }
+        ]
+      }
+    `;
 
-    // Generate quiz questions
-    const completion = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a quiz generator. Create multiple-choice questions with 4 options and mark the correct answer.",
-        },
-        {
-          role: "user",
-          content: `Generate 5 quiz questions for the course: ${course}`,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
     });
 
-    // Parse output
-    const responseText = completion.choices[0].message.content;
-    res.status(200).json({ questions: responseText });
+    // Parse the AI response
+    const text = response.choices[0].message.content;
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      console.error("OpenAI response parse error:", e, text);
+      return NextResponse.json(
+        { message: "Invalid quiz format from AI" },
+        { status: 500 }
+      );
+    }
 
-  } catch (error) {
-    console.error("Error generating quiz:", error);
-    res.status(500).json({ message: "Failed to generate quiz" });
+    // Return structured quiz
+    return NextResponse.json({ questions: parsed.questions });
+  } catch (err) {
+    console.error("Error in generateQuiz API:", err);
+    return NextResponse.json(
+      { message: "Failed to generate quiz" },
+      { status: 500 }
+    );
   }
 }

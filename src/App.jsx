@@ -13,7 +13,7 @@ import CourseContent from './pages/CourseContent';
 import FacilitatorDashboard from './pages/FacilitatorDashboard';
 import LearnerDashboard from './pages/LearnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import Learnerprofile from './pages/Learnerprofile';
+import LearnerSettings from './pages/LearnerSettings';
 import MyCourses from './pages/MyCourses';  // <---- Import added here
 import Assessments from './pages/Assessments'; // create this page
 import AssessmentDetail from './pages/AssessmentDetail';
@@ -24,6 +24,8 @@ import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage'; // <-- Added import here
 import ContactUs from "./pages/contact";
 import QuizViewer from "./pages/QuizViewer"; // adjust path
+import EnrollStudent from './pages/Enrollstudent';
+
 
 
 function AppContent() {
@@ -45,7 +47,7 @@ function AppContent() {
         <Route path="/facilitator-dashboard" element={<FacilitatorDashboard />} />
         <Route path="/learner-dashboard" element={<LearnerDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/learner-profile" element={<Learnerprofile />} />
+        <Route path="/learner-settings" element={<LearnerSettings />} />
         <Route path="/courses" element={<MyCourses />} />
         <Route path="/assessments" element={<Assessments />} />
         <Route path="/assessments/:id" element={<AssessmentDetail />} />
@@ -55,10 +57,8 @@ function AppContent() {
         <Route path="/course/:courseId/quiz" element={<QuizViewer />} />
         <Route path="/managestudents" element={<ManageStudents />} />
         <Route path="/contact" element={<ContactUs />} />
-
-        <Route path="/help" element={<Help />} />
-
-        {/* Added route for Notifications */}
+        <Route path="/enrollstudent" element={<EnrollStudent/>}/>
+        <Route path="/help" element={<Help />}/>
         <Route path="/notifications" element={<NotificationsPage />} />
       </Routes>
       {showLayout && <Footer />}

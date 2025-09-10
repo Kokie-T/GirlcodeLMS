@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import {
+  doc,
+  getDoc,
   collection,
   getDocs,
   query,
@@ -15,87 +17,95 @@ export default function MyCourses() {
   const auth = getAuth();
   const user = auth.currentUser;
 
-  const [courses, setCourses] = useState([]);
+  const [avatar, setAvatar] = useState(null);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [results, setResults] = useState({});
   const [history, setHistory] = useState({});
-  const [expanded, setExpanded] = useState({}); // track expanded course cards
+  const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchCoursesAndResults = async () => {
+    const fetchUserData = async () => {
       try {
-        const learnerId = user.uid;
+        // 1️⃣ Get learner document
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) return;
 
-        // Fetch enrolled courses
-        const qCourses = query(
-          collection(db, "courses"),
-          where("assignedLearners", "array-contains", learnerId)
-        );
-        const courseSnap = await getDocs(qCourses);
-        const fetchedCourses = courseSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setCourses(fetchedCourses);
+        const userData = userSnap.data();
+        setAvatar(userData.avatar || null);
 
-        // Fetch quiz results
+        const learnerCourses = userData.courses || []; 
+        // courses array in user doc: [{id, title, progress}]
+        setEnrolledCourses(learnerCourses);
+
+        // 2️⃣ Get quiz results
         const qResults = query(
           collection(db, "results"),
-          where("userId", "==", learnerId),
+          where("userId", "==", user.uid),
           orderBy("takenAt", "desc")
         );
         const resultSnap = await getDocs(qResults);
 
         let resMap = {};
         let historyMap = {};
+
         resultSnap.forEach((doc) => {
           const data = doc.data();
+          const courseId = data.courseId;
 
-          // Build history
-          if (!historyMap[data.courseId]) historyMap[data.courseId] = [];
-          historyMap[data.courseId].push({
+          // Build history array
+          if (!historyMap[courseId]) historyMap[courseId] = [];
+          historyMap[courseId].push({
             score: data.score,
             date: data.takenAt?.toDate?.() || new Date(),
           });
 
           // Aggregate for average
-          if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
-          resMap[data.courseId].total += data.score;
-          resMap[data.courseId].count += 1;
+          if (!resMap[courseId]) resMap[courseId] = { total: 0, count: 0 };
+          resMap[courseId].total += data.score;
+          resMap[courseId].count += 1;
         });
 
         // Compute averages
         Object.keys(resMap).forEach((courseId) => {
-          resMap[courseId] = Math.round(resMap[courseId].total / resMap[courseId].count);
+          resMap[courseId] = Math.round(
+            resMap[courseId].total / resMap[courseId].count
+          );
         });
 
         setResults(resMap);
         setHistory(historyMap);
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching courses or results:", error);
+        console.error("Error fetching learner courses:", error);
         setLoading(false);
       }
     };
 
-    fetchCoursesAndResults();
+    fetchUserData();
   }, [user]);
 
-  if (loading) return <p className="p-6 text-gray-600">Loading courses...</p>;
+  if (loading)
+    return <p className="p-6 text-gray-600">Loading your courses...</p>;
+
+  if (!user)
+    return <p className="p-6 text-red-600">User not signed in.</p>;
 
   return (
     <div className="p-6 grid md:grid-cols-2 gap-6">
-      {courses.length === 0 && <p>You have not enrolled in any courses yet.</p>}
+      {enrolledCourses.length === 0 && (
+        <p>You have not enrolled in any courses yet.</p>
+      )}
 
-      {courses.map((course) => {
+      {enrolledCourses.map((course) => {
         const avgScore = results[course.id] ?? 0;
         const courseHistory = history[course.id] ?? [];
         const isExpanded = expanded[course.id];
-        const contentProgress = course.progress || 0; // course content completion
+        const contentProgress = course.progress || 0;
 
-        // Compute capped composite bar widths
         const totalWidth = Math.min(contentProgress + avgScore, 100);
         const contentWidth = Math.min(contentProgress, totalWidth);
         const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
@@ -109,7 +119,10 @@ export default function MyCourses() {
               <h3 className="text-gray-800 font-medium">{course.title}</h3>
               <button
                 onClick={() =>
-                  setExpanded((prev) => ({ ...prev, [course.id]: !prev[course.id] }))
+                  setExpanded((prev) => ({
+                    ...prev,
+                    [course.id]: !prev[course.id],
+                  }))
                 }
                 className="text-blue-500 text-sm"
               >
@@ -117,14 +130,12 @@ export default function MyCourses() {
               </button>
             </div>
 
-            {/* 🔹 Capped Composite Progress Bar */}
+            {/* Progress Bar */}
             <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
-              {/* Content Progress */}
               <div
                 className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out"
                 style={{ width: `${contentWidth}%` }}
               />
-              {/* Quiz Performance */}
               <div
                 className="absolute left-0 top-0 h-4 bg-pink-400 transition-all duration-700 ease-out opacity-70"
                 style={{ width: `${quizWidth}%` }}
@@ -134,7 +145,6 @@ export default function MyCourses() {
               Content: {contentProgress}%, Quiz Avg: {avgScore}%
             </p>
 
-            {/* Take Quiz Button */}
             <button
               onClick={() => navigate(`/quiz/${course.id}`)}
               className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 rounded-lg hover:opacity-90 transition mb-2"
@@ -142,7 +152,6 @@ export default function MyCourses() {
               Take Quiz
             </button>
 
-            {/* 🔹 Quiz History */}
             {isExpanded && courseHistory.length > 0 && (
               <div className="mt-3 bg-gray-50 p-3 rounded-lg">
                 <h4 className="font-semibold mb-2">Past Quiz Attempts</h4>

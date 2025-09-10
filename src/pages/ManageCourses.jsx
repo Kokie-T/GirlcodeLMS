@@ -17,7 +17,7 @@ export default function ManageCourses() {
 
   const coursesRef = collection(db, "courses");
 
-  // Fetch courses from Firestore
+  // Fetch courses
   const fetchCourses = async () => {
     const snapshot = await getDocs(coursesRef);
     const courseList = snapshot.docs.map((doc) => ({
@@ -35,12 +35,9 @@ export default function ManageCourses() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editId) {
-      // Update existing
-      const courseDoc = doc(db, "courses", editId);
-      await updateDoc(courseDoc, { title, description });
+      await updateDoc(doc(db, "courses", editId), { title, description });
       setEditId(null);
     } else {
-      // Add new
       await addDoc(coursesRef, { title, description });
     }
     setTitle("");
@@ -50,6 +47,7 @@ export default function ManageCourses() {
 
   // Delete course
   const handleDelete = async (id) => {
+    if (!window.confirm("Delete this course?")) return;
     await deleteDoc(doc(db, "courses", id));
     fetchCourses();
   };
@@ -94,18 +92,23 @@ export default function ManageCourses() {
           </button>
         </form>
 
-        {/* List of Courses */}
+        {/* Course List */}
         <div className="space-y-4">
           {courses.map((course) => (
             <div
               key={course.id}
               className="bg-gradient-to-r from-blue-50 to-pink-50 p-4 rounded-lg flex justify-between items-center"
             >
-              <div>
-                <h2 className="font-semibold">{course.title}</h2>
-                <p className="text-sm text-gray-600">{course.description}</p>
+              {/* Text content */}
+              <div className="flex-1 min-w-0 pr-4">
+                <h2 className="font-semibold truncate">{course.title}</h2>
+                <p className="text-sm text-gray-600 overflow-hidden text-ellipsis line-clamp-2">
+                  {course.description}
+                </p>
               </div>
-              <div className="space-x-2">
+
+              {/* Buttons */}
+              <div className="flex-shrink-0 flex gap-2">
                 <button
                   className="px-3 py-1 bg-yellow-200 rounded"
                   onClick={() => handleEdit(course)}

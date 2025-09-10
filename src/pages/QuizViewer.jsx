@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  doc,
-  setDoc,
-} from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const QuizViewer = () => {
@@ -25,26 +19,35 @@ const QuizViewer = () => {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const qSnap = await getDocs(collection(db, "quizzes", courseId, "questions"));
-        const fetched = qSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setQuestions(fetched);
-        setLoading(false);
+        // 🔹 Fetch quiz document
+        const quizRef = doc(db, "quizzes", courseId);
+        const quizSnap = await getDoc(quizRef);
+
+        if (quizSnap.exists()) {
+          const quizData = quizSnap.data();
+          setQuestions(quizData.questions || []);
+        } else {
+          console.warn("No quiz found for this course.");
+          setQuestions([]);
+        }
       } catch (error) {
         console.error("Error loading quiz:", error);
+      } finally {
         setLoading(false);
       }
     };
+
     fetchQuiz();
   }, [courseId]);
 
-  const handleSelect = (questionId, option) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: option }));
+  const handleSelect = (questionIndex, option) => {
+    setAnswers((prev) => ({ ...prev, [questionIndex]: option }));
   };
 
   const handleSubmit = async () => {
     let correct = 0;
-    questions.forEach((q) => {
-      if (answers[q.id] === q.correctAnswer) correct++;
+    questions.forEach((q, idx) => {
+      if (answers[idx] === q.correctAnswer) correct++;
     });
 
     const finalScore = Math.round((correct / questions.length) * 100);
@@ -53,8 +56,9 @@ const QuizViewer = () => {
 
     if (user) {
       try {
+        // 🔹 Save results under users/{uid}/results/{courseId}
         await setDoc(
-          doc(db, "results", `${user.uid}_${courseId}`),
+          doc(db, "users", user.uid, "results", courseId),
           {
             userId: user.uid,
             courseId,
@@ -78,7 +82,9 @@ const QuizViewer = () => {
 
       {submitted ? (
         <div className="bg-green-100 p-6 rounded-lg shadow">
-          <h3 className="text-xl font-semibold text-green-700">Quiz Completed!</h3>
+          <h3 className="text-xl font-semibold text-green-700">
+            Quiz Completed!
+          </h3>
           <p className="text-gray-700 mt-2">
             You scored <span className="font-bold">{score}%</span>
           </p>
@@ -97,7 +103,7 @@ const QuizViewer = () => {
           }}
         >
           {questions.map((q, idx) => (
-            <div key={q.id} className="mb-6 p-4 bg-white rounded-lg shadow">
+            <div key={idx} className="mb-6 p-4 bg-white rounded-lg shadow">
               <p className="font-medium text-gray-800 mb-2">
                 {idx + 1}. {q.text}
               </p>
@@ -106,17 +112,17 @@ const QuizViewer = () => {
                   <label
                     key={i}
                     className={`block p-2 border rounded-lg cursor-pointer ${
-                      answers[q.id] === opt
+                      answers[idx] === opt
                         ? "bg-blue-100 border-blue-400"
                         : "border-gray-300"
                     }`}
                   >
                     <input
                       type="radio"
-                      name={q.id}
+                      name={`question-${idx}`}
                       value={opt}
-                      checked={answers[q.id] === opt}
-                      onChange={() => handleSelect(q.id, opt)}
+                      checked={answers[idx] === opt}
+                      onChange={() => handleSelect(idx, opt)}
                       className="hidden"
                     />
                     {opt}
