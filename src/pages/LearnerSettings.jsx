@@ -21,6 +21,7 @@ export default function LearnerSettings() {
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
+    { name: "Help", icon:<HiOutlineUser/>, path:"/help" },
     { name: "Logout", icon: <HiOutlineLogout />, action: () => setShowLogoutConfirm(true) }, 
    ];
 

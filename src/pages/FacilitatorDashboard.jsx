@@ -382,9 +382,12 @@ useEffect(() => {
               >
                 Cancel
               </button>
+              <div className="flex-grow" />
               <button
-                onClick={() => setIsSidebarOpen(true)}>
-                Logout
+               className="flex items-center gap-3 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition"
+               onClick={() => setShowLogoutConfirm(true)}
+                >
+               <FaSignOutAlt /> Logout
               </button>
             </div>
           </div>

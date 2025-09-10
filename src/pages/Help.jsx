@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FaQuestionCircle, FaMoon, FaSun, FaRobot } from "react-icons/fa";
 import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 
 export default function Help() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -16,11 +17,14 @@ export default function Help() {
   const [input, setInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
 
-  // Simple translations (expand with i18n later if needed)
+  const navigate = useNavigate();
+
+  // Simple translations
   const translations = {
     en: {
       helpTitle: "Help & Support",
-      intro: "Need assistance? Here you can find answers to common questions and get in touch with our support team.",
+      intro:
+        "Need assistance? Here you can find answers to common questions and get in touch with our support team.",
       name: "Your Name",
       email: "Your Email",
       message: "Message",
@@ -30,7 +34,8 @@ export default function Help() {
     },
     zu: {
       helpTitle: "Usizo & Ukusekelwa",
-      intro: "Udinga usizo? Lapha ungathola izimpendulo zemibuzo evame ukubuzwa futhi uxhumane nethimba lethu lokusekela.",
+      intro:
+        "Udinga usizo? Lapha ungathola izimpendulo zemibuzo evame ukubuzwa futhi uxhumane nethimba lethu lokusekela.",
       name: "Igama Lakho",
       email: "I-imeyili Yakho",
       message: "Umlayezo",
@@ -40,7 +45,8 @@ export default function Help() {
     },
     af: {
       helpTitle: "Hulp & Ondersteuning",
-      intro: "Het jy hulp nodig? Hier kan jy antwoorde op algemene vrae kry en met ons ondersteuningspan kontak maak.",
+      intro:
+        "Het jy hulp nodig? Hier kan jy antwoorde op algemene vrae kry en met ons ondersteuningspan kontak maak.",
       name: "Jou Naam",
       email: "Jou E-pos",
       message: "Boodskap",
@@ -86,7 +92,10 @@ export default function Help() {
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
-        { from: "bot", text: "Thanks for your message! Our team will respond soon." },
+        {
+          from: "bot",
+          text: "Thanks for your message! Our team will respond soon.",
+        },
       ]);
     }, 1000);
 
@@ -95,6 +104,15 @@ export default function Help() {
 
   return (
     <div className={`${darkMode ? "dark" : ""}`}>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="m-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+      >
+        Back
+      </button>
+
+      {/* Main Content */}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 transition">
         <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
           {/* Header */}
@@ -140,15 +158,21 @@ export default function Help() {
           {/* FAQ Section */}
           <div className="space-y-4 mb-10">
             <div className="bg-gradient-to-r from-blue-50 to-pink-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg">
-              <h2 className="font-semibold text-gray-800 dark:text-gray-100">How do I reset my password?</h2>
+              <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+                How do I reset my password?
+              </h2>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                Go to the profile page, enter your new password in the password field, and click "Update Profile".
+                Go to the profile page, enter your new password in the password
+                field, and click "Update Profile".
               </p>
             </div>
             <div className="bg-gradient-to-r from-blue-50 to-pink-50 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg">
-              <h2 className="font-semibold text-gray-800 dark:text-gray-100">Where can I view my courses?</h2>
+              <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+                Where can I view my courses?
+              </h2>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                From the sidebar, click on "My Courses" to see all the courses you are enrolled in.
+                From the sidebar, click on "My Courses" to see all the courses
+                you are enrolled in.
               </p>
             </div>
           </div>
@@ -206,7 +230,9 @@ export default function Help() {
             </button>
           </form>
 
-          {success && <p className="mt-4 text-green-600 dark:text-green-400">{success}</p>}
+          {success && (
+            <p className="mt-4 text-green-600 dark:text-green-400">{success}</p>
+          )}
         </div>
       </div>
 
@@ -218,7 +244,8 @@ export default function Help() {
               Privacy Policy
             </h2>
             <p className="text-gray-700 dark:text-gray-300">
-              Your data is safe with us. We will not share your information with any third parties.
+              Your data is safe with us. We will not share your information with
+              any third parties.
             </p>
             <button
               onClick={() => setShowPolicy(false)}
@@ -259,7 +286,9 @@ export default function Help() {
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 border rounded-l-md p-2 dark:bg-gray-700 dark:text-gray-100"
               />
-              <button className="bg-pink-400 text-white px-4 rounded-r-md">Send</button>
+              <button className="bg-pink-400 text-white px-4 rounded-r-md">
+                Send
+              </button>
             </form>
           </div>
         ) : (

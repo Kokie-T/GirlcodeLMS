@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
 import { db } from "../firebase";
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, orderBy,onSnapshot } from "firebase/firestore";
 import { HiOutlineHome, HiOutlineBookOpen, HiOutlineUser, HiOutlineLogout, HiMenu, HiX, HiBell, HiChatAlt2 } from "react-icons/hi";
 
 export default function LearnerDashboard() {
@@ -22,20 +22,40 @@ export default function LearnerDashboard() {
   const [notifSeen, setNotifSeen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [messages, setMessages] = useState([]);
+
 
   const notifRef = useRef(null);
   const msgRef = useRef(null);
   const avatarInputRef = useRef(null);
 
-  const notifications = [
-    "New lesson added to UI/UX Design Principles",
-    "Your assignment for Data Analysis is due tomorrow",
-  ];
+  useEffect(() => {
+  if (!user) return;
 
-  const messages = [
-    { from: "Instructor Jane", text: "Don't forget the webinar tomorrow!" },
-    { from: "Admin", text: "Your profile has been updated." },
-  ];
+  // Notifications listener
+  const notifQ = query(
+    collection(db, "users", user.uid, "notifications"),
+    orderBy("createdAt", "desc")
+  );
+  const unsubNotif = onSnapshot(notifQ, (snap) => {
+    setNotifications(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  });
+
+  // Messages listener
+  const msgQ = query(
+    collection(db, "users", user.uid, "messages"),
+    orderBy("createdAt", "desc")
+  );
+  const unsubMsg = onSnapshot(msgQ, (snap) => {
+    setMessages(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  });
+
+  return () => {
+    unsubNotif();
+    unsubMsg();
+  };
+}, [user]);
 
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
@@ -165,14 +185,106 @@ export default function LearnerDashboard() {
             <h1 className="text-2xl font-semibold text-gray-800">Welcome back, {formData.fullname || "Learner"} 👋</h1>
             <p className="text-gray-600 mt-1">Here’s your learning progress at a glance</p>
           </div>
+        <div className="flex items-center space-x-4 relative">
+  {/* Notifications */}
+  <div className="relative">
+    <button
+      onClick={() => { setNotifOpen(!notifOpen); setMsgOpen(false); }}
+      className="relative p-2 rounded-full hover:bg-gray-200 transition"
+    >
+      <HiBell size={24} className="text-gray-700" />
+      {notifications.some(n => !n.seen) && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+          {notifications.filter(n => !n.seen).length}
+        </span>
+      )}
+    </button>
 
-          <div className="flex items-center space-x-5 relative">
-            {/* Avatar */}
-            <div onClick={() => avatarInputRef.current && avatarInputRef.current.click()}>
-              {avatar ? <img src={avatar} alt="Avatar" className="w-12 h-12 rounded-full object-cover cursor-pointer border-2 border-white shadow" /> : <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl cursor-pointer border-2 border-white shadow">{formData.fullname?.charAt(0).toUpperCase() || "L"}</div>}
-            </div>
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-          </div>
+    {notifOpen && (
+      <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg p-3 z-50">
+        <h4 className="font-semibold mb-2">Notifications</h4>
+        {notifications.length === 0 ? (
+          <p className="text-sm text-gray-500">No notifications yet.</p>
+        ) : (
+          <ul className="space-y-2 max-h-64 overflow-y-auto">
+            {notifications.map(n => (
+              <li
+                key={n.id}
+                className={`p-2 rounded-lg ${n.seen ? "bg-gray-50" : "bg-blue-50"}`}
+              >
+                <p className="text-sm text-gray-800">{n.text}</p>
+                <span className="text-xs text-gray-500">
+                  {n.createdAt?.toDate().toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* Messages */}
+  <div className="relative">
+    <button
+      onClick={() => { setMsgOpen(!msgOpen); setNotifOpen(false); }}
+      className="relative p-2 rounded-full hover:bg-gray-200 transition"
+    >
+      <HiChatAlt2 size={24} className="text-gray-700" />
+      {messages.some(m => !m.seen) && (
+        <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+          {messages.filter(m => !m.seen).length}
+        </span>
+      )}
+    </button>
+
+    {msgOpen && (
+      <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg p-3 z-50">
+        <h4 className="font-semibold mb-2">Messages</h4>
+        {messages.length === 0 ? (
+          <p className="text-sm text-gray-500">No messages yet.</p>
+        ) : (
+          <ul className="space-y-2 max-h-64 overflow-y-auto">
+            {messages.map(m => (
+              <li
+                key={m.id}
+                className={`p-2 rounded-lg ${m.seen ? "bg-gray-50" : "bg-pink-50"}`}
+              >
+                <p className="text-sm text-gray-800">
+                  <strong>{m.from}: </strong>{m.text}
+                </p>
+                <span className="text-xs text-gray-500">
+                  {m.createdAt?.toDate().toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* Avatar */}
+  <div
+    onClick={() => navigate("/learner-settings")}
+    className="relative cursor-pointer hover:scale-105 transition-transform"
+    title="Go to Profile Settings"
+  >
+    {avatar ? (
+      <img
+        src={avatar}
+        alt="Avatar"
+        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
+      />
+    ) : (
+      <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl border-2 border-white shadow">
+        {formData.fullname?.charAt(0).toUpperCase() || "L"}
+      </div>
+    )}
+  </div>
+</div>
+
+
         </header>
 
         {/* Courses Grid */}
