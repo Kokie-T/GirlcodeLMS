@@ -25,6 +25,10 @@ import NotificationsPage from './pages/NotificationsPage'; // <-- Added import h
 import ContactUs from "./pages/contact";
 import QuizViewer from "./pages/QuizViewer"; // adjust path
 import EnrollStudent from './pages/Enrollstudent';
+import CourseManagementPage from "./components/CourseManagementPage";
+import GradingPage from "./components/GradingPage";
+import LearningMaterialsPage from "./components/LearningMaterialsPage";
+import CalendarPage from "./components/CalendarPage";
 
 
 
@@ -60,6 +64,11 @@ function AppContent() {
         <Route path="/enrollstudent" element={<EnrollStudent/>}/>
         <Route path="/help" element={<Help />}/>
         <Route path="/notifications" element={<NotificationsPage />} />
+
+        <Route path="/courses" element={<CourseManagementPage/>} />
+        <Route path="/grading" element={<GradingPage/>} />
+        <Route path="/materials" element={<LearningMaterialsPage/>} />
+        <Route path="/calendar" element={<CalendarPage/>} />
       </Routes>
       {showLayout && <Footer />}
     </>
