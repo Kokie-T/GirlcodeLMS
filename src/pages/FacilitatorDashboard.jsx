@@ -9,9 +9,9 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaUsers,
   FaCalendarAlt,
 } from "react-icons/fa";
+import { auth } from "../firebase"; // ✅ use firebase auth
 import Dashboard from "../components/Dashboard";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
@@ -21,20 +21,52 @@ import CalendarPage from "../components/CalendarPage";
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState("Dashboard");
-  const [darkMode, setDarkMode] = useState(false);
-  const [language, setLanguage] = useState("English");
+
+  // ✅ Profile & Settings
+  const [darkMode, setDarkMode] = useState(
+    () => JSON.parse(localStorage.getItem("darkMode")) || false
+  );
+  const [language, setLanguage] = useState(
+    localStorage.getItem("language") || "English"
+  );
   const [profilePopup, setProfilePopup] = useState(false);
-  const [profileColor, setProfileColor] = useState("#4F46E5");
+  const [profileColor, setProfileColor] = useState(
+    localStorage.getItem("profileColor") || "#4F46E5"
+  );
   const [firstName, setFirstName] = useState("John");
   const [lastName, setLastName] = useState("Doe");
   const [email, setEmail] = useState("johndoe@example.com");
-  const [password, setPassword] = useState("password123");
+  const [password, setPassword] = useState("password123"); // optional mock password
 
-  // Toggle dark mode
+  /* ------------------- Effects ------------------- */
+  // Dark mode toggle
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
   }, [darkMode]);
+
+  // Persist language & profileColor
+  useEffect(() => {
+    localStorage.setItem("language", language);
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem("profileColor", profileColor);
+  }, [profileColor]);
+
+  // ✅ Load Firebase user details
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      setEmail(user.email);
+      if (user.displayName) {
+        const [fName, lName] = user.displayName.split(" ");
+        setFirstName(fName || firstName);
+        setLastName(lName || lastName);
+      }
+    }
+  }, []);
 
   return (
     <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
@@ -47,6 +79,7 @@ export default function FacilitatorDashboard() {
           <button
             className="md:hidden p-4 self-end text-xl"
             onClick={() => setIsSidebarOpen(false)}
+            aria-label="Close sidebar"
           >
             <FaTimes className={darkMode ? "text-white" : ""} />
           </button>
@@ -102,7 +135,7 @@ export default function FacilitatorDashboard() {
           <button
             onClick={() => {
               if (window.confirm("Are you sure you want to logout?")) {
-                alert("Logged out!");
+                auth.signOut(); // ✅ log out user
               }
             }}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
@@ -118,6 +151,7 @@ export default function FacilitatorDashboard() {
           <button
             className="md:hidden p-2 bg-blue-500 text-white rounded-lg"
             onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open sidebar"
           >
             <FaBars />
           </button>
@@ -157,8 +191,8 @@ export default function FacilitatorDashboard() {
         )}
 
         {/* Render Active Page */}
-        {activePage === "Dashboard" && <Dashboard />}
-        {activePage === "Messages" && <Dashboard />} {/* Replace with Messages component if created */}
+        {activePage === "Dashboard" && <Dashboard setActivePage={setActivePage} />}
+        {activePage === "Messages" && <div>📩 Messages Page (Coming Soon)</div>}
         {activePage === "Courses" && <CourseManagementPage />}
         {activePage === "Grading" && <GradingPage darkMode={darkMode} />}
         {activePage === "Materials" && <LearningMaterialsPage />}
@@ -204,14 +238,17 @@ const ProfilePopup = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative transition transform scale-95">
         <button
           className="absolute top-2 right-2 text-gray-500 dark:text-gray-200"
           onClick={close}
+          aria-label="Close profile popup"
         >
           <FaTimes />
         </button>
-        <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">
+          Update Profile
+        </h2>
         <input
           type="text"
           placeholder="First Name"

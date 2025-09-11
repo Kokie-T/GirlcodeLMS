@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import Header from './components/Header';
 import Footer from './components/Footer';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import {Toaster} from"react-hot-toast";
 
 import SignUp from './pages/SignUp';
 import Login from './pages/Login';
@@ -77,7 +78,11 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
+  <Router>
+      <>
+      <FacilitatorDashboard />
+      <Toaster position="bottom-right" reverseOrder={false} />
+    </>
       <AppContent />
     </Router>
   );
