@@ -9,14 +9,15 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaUsers,
   FaCalendarAlt,
 } from "react-icons/fa";
+
 import Dashboard from "../components/Dashboard";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
 import LearningMaterialsPage from "../components/LearningMaterialsPage";
 import CalendarPage from "../components/CalendarPage";
+import Messages from "../components/MessagesPage"; // ✅ import the new Messages component
 
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -35,6 +36,9 @@ export default function FacilitatorDashboard() {
     if (darkMode) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
   }, [darkMode]);
+
+  const firstInitial = firstName?.[0] ?? "";
+  const lastInitial = lastName?.[0] ?? "";
 
   return (
     <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
@@ -131,8 +135,8 @@ export default function FacilitatorDashboard() {
             style={{ backgroundColor: profileColor }}
             onClick={() => setProfilePopup(true)}
           >
-            {firstName[0]}
-            {lastName[0]}
+            {firstInitial}
+            {lastInitial}
           </button>
         </div>
 
@@ -158,7 +162,7 @@ export default function FacilitatorDashboard() {
 
         {/* Render Active Page */}
         {activePage === "Dashboard" && <Dashboard />}
-        {activePage === "Messages" && <Dashboard />} {/* Replace with Messages component if created */}
+        {activePage === "Messages" && <Messages />} {/* ✅ now renders Messages */}
         {activePage === "Courses" && <CourseManagementPage />}
         {activePage === "Grading" && <GradingPage darkMode={darkMode} />}
         {activePage === "Materials" && <LearningMaterialsPage />}
