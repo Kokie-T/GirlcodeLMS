@@ -3,8 +3,9 @@ import React, { useEffect, useState } from "react";
 import { FaUsers, FaCheckSquare, FaBook, FaEnvelope } from "react-icons/fa";
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { auth, db } from "../firebase"; // adjust your firebase import
+import toast from "react-hot-toast";
 
-const Dashboard = () => {
+const Dashboard = ({setActivePage}) => {
   const [totalLearners, setTotalLearners] = useState(0);
   const [activeCourses, setActiveCourses] = useState(0);
   const [pendingGrades, setPendingGrades] = useState(0);
@@ -49,6 +50,7 @@ const Dashboard = () => {
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
+      
     };
 
     fetchData();
@@ -62,10 +64,14 @@ const Dashboard = () => {
   ];
 
   const quickActions = [
-    { text: "Post New Material", color: "bg-blue-600" },
-    { text: "Grade Assignments", color: "bg-green-600" },
-    { text: "Send Announcement", color: "bg-purple-600" },
+    { text: "Post New Material", color: "bg-blue-600",page: "Materials"},
+    { text: "Grade Assignments", color: "bg-green-600",page: "Grading"},
+    { text: "Send Announcement", color: "bg-purple-600",page: "Announcements"},
   ];
+  const handleAction = (action) => {
+    toast.success(`Navigating to ${action.text}...`);
+    setActivePage(action.page);
+  };
 
   return (
     <div>
@@ -91,7 +97,11 @@ const Dashboard = () => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
           <h2 className="text-lg font-semibold mb-4 dark:text-white">Quick Actions</h2>
           {quickActions.map((action, i) => (
-            <ActionButton key={i} {...action} />
+            <ActionButton 
+            key={i}
+            {...action}
+            onClick={() => handleAction(action)}
+            />
           ))}
         </div>
       </div>
@@ -117,10 +127,14 @@ const ActivityItem = ({ title, subtitle }) => (
   </div>
 );
 
-const ActionButton = ({ color, text }) => (
-  <button className={`${color} w-full py-2 text-white rounded-lg hover:opacity-90 transition mb-2`}>
+const ActionButton = ({ color, text, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`${color} w-full py-2 text-white rounded-lg hover:opacity-90 transition mb-2`}
+  >
     {text}
   </button>
 );
+
 
 export default Dashboard;
