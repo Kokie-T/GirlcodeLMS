@@ -30,6 +30,7 @@ import CourseManagementPage from "./components/CourseManagementPage";
 import GradingPage from "./components/GradingPage";
 import LearningMaterialsPage from "./components/LearningMaterialsPage";
 import CalendarPage from "./components/CalendarPage";
+import LearnerMessages from "./components/LearnerMessages";
 
 function AppContent() {
   const location = useLocation();
@@ -68,6 +69,9 @@ function AppContent() {
         <Route path="/grading" element={<GradingPage />} />
         <Route path="/materials" element={<LearningMaterialsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+
+        {/* ✅ Add Learner Messages route */}
+        <Route path="/learner/messages" element={<LearnerMessages />} />
       </Routes>
       {showLayout && <Footer />}
     </>

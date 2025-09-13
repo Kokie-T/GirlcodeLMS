@@ -10,6 +10,8 @@ import {
   addDoc,
   serverTimestamp,
   onSnapshot,
+  doc,
+  getDoc
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -26,17 +28,16 @@ export default function MessagesPage() {
       if (user) {
         setFacilitator({
           uid: user.uid,
-          name: user.displayName || user.email, // fallback
+          name: user.displayName || user.email,
         });
       } else {
         setFacilitator(null);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  // ✅ Fetch learners from Firestore
+  // ✅ Fetch initial learners list from Firestore
   useEffect(() => {
     const fetchLearners = async () => {
       try {
@@ -55,9 +56,9 @@ export default function MessagesPage() {
     fetchLearners();
   }, []);
 
-  // ✅ Realtime conversation with selected learner
+  // ✅ Real-time listener for all messages involving facilitator
   useEffect(() => {
-    if (!selectedLearner || !facilitator) return;
+    if (!facilitator) return;
 
     const convRef = collection(db, "conversations");
     const q = query(
@@ -66,17 +67,43 @@ export default function MessagesPage() {
       orderBy("timestamp", "asc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const convData = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((msg) =>
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const allMsgs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+      // Filter conversation if a learner is selected
+      if (selectedLearner) {
+        const filtered = allMsgs.filter((msg) =>
           msg.participants.includes(selectedLearner)
         );
-      setConversation(convData);
+        setConversation(filtered);
+      }
+
+      // Update learners dropdown to include any new learners who sent messages
+      const learnerIds = allMsgs
+        .filter((msg) => msg.senderRole === "Learner")
+        .map((msg) => msg.senderId);
+
+      const uniqueLearners = [...new Set([...learners.map(l => l.id), ...learnerIds])];
+
+      // Fetch learner names if new ones appear
+      const updatedLearners = await Promise.all(
+        uniqueLearners.map(async (uid) => {
+          const existing = learners.find((l) => l.id === uid);
+          if (existing) return existing;
+          const docRef = doc(db, "users", uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            return { id: uid, name: docSnap.data().name || uid };
+          }
+          return { id: uid, name: uid };
+        })
+      );
+
+      setLearners(updatedLearners);
     });
 
     return () => unsubscribe();
-  }, [selectedLearner, facilitator]);
+  }, [facilitator, selectedLearner, learners]);
 
   // ✅ Send new message
   const handleSendMessage = async () => {
@@ -93,7 +120,7 @@ export default function MessagesPage() {
         timestamp: serverTimestamp(),
       });
 
-      setNewMessage(""); // clear input
+      setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
     }

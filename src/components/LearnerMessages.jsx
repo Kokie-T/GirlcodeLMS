@@ -1,0 +1,172 @@
+// src/components/LearnerMessages.jsx
+import React, { useState, useEffect } from "react";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { db } from "../firebase";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  getDocs
+} from "firebase/firestore";
+
+export default function LearnerMessages() {
+  const auth = getAuth();
+  const [user, setUser] = useState(null);
+  const [facilitators, setFacilitators] = useState([]);
+  const [selectedFacilitator, setSelectedFacilitator] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+
+  // ✅ Track logged-in learner
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (u) setUser(u);
+      else setUser(null);
+    });
+    return () => unsubscribe();
+  }, [auth]);
+
+  // ✅ Fetch initial facilitators list
+  useEffect(() => {
+    const fetchFacilitators = async () => {
+      const facQ = query(collection(db, "users"), where("role", "==", "Facilitator"));
+      const facSnap = await getDocs(facQ);
+      setFacilitators(facSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+    fetchFacilitators();
+  }, []);
+
+  // ✅ Real-time listener for all messages involving learner
+  useEffect(() => {
+    if (!user) return;
+
+    const convRef = collection(db, "conversations");
+    const chatQ = query(convRef, where("participants", "array-contains", user.uid), orderBy("timestamp", "asc"));
+
+    const unsub = onSnapshot(chatQ, async (snap) => {
+      const allMsgs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Update conversation if facilitator is selected
+      if (selectedFacilitator) {
+        const filtered = allMsgs.filter(msg =>
+          msg.participants.includes(selectedFacilitator.id)
+        );
+        setMessages(filtered);
+      }
+
+      // Update facilitator list dynamically
+      const facIds = allMsgs
+        .filter(msg => msg.senderId !== user.uid)
+        .map(msg => msg.senderId);
+
+      const uniqueFacIds = [...new Set([...facilitators.map(f => f.id), ...facIds])];
+
+      const updatedFacilitators = await Promise.all(
+        uniqueFacIds.map(async (id) => {
+          const existing = facilitators.find(f => f.id === id);
+          if (existing) return existing;
+
+          const docRef = doc(db, "users", id);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) return { id, ...docSnap.data() };
+          return { id, fullname: id };
+        })
+      );
+
+      setFacilitators(updatedFacilitators);
+    });
+
+    return () => unsub();
+  }, [user, selectedFacilitator, facilitators]);
+
+  // ✅ Send message
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedFacilitator || !user) return;
+
+    try {
+      await addDoc(collection(db, "conversations"), {
+        senderId: user.uid,
+        senderRole: "Learner",
+        senderName: user.displayName || user.email,
+        text: newMessage,
+        participants: [user.uid, selectedFacilitator.id],
+        timestamp: serverTimestamp(),
+      });
+      setNewMessage("");
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
+  };
+
+  return (
+    <div className="flex h-screen">
+      {/* Facilitators list */}
+      <div className="w-1/3 border-r p-4 overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-4">Facilitators</h2>
+        <ul>
+          {facilitators.map((f) => (
+            <li
+              key={f.id}
+              onClick={() => setSelectedFacilitator(f)}
+              className={`p-2 cursor-pointer rounded ${
+                selectedFacilitator?.id === f.id ? "bg-blue-100" : "hover:bg-gray-100"
+              }`}
+            >
+              {f.fullname || f.name || f.email || f.id}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Chat panel */}
+      <div className="w-2/3 p-4 flex flex-col">
+        {selectedFacilitator ? (
+          <>
+            <h2 className="text-lg font-semibold mb-2">
+              Chat with {selectedFacilitator.fullname || selectedFacilitator.name || selectedFacilitator.id}
+            </h2>
+            <div className="flex-1 overflow-y-auto border rounded p-3 mb-3">
+              {messages.length > 0 ? (
+                messages.map((msg) => (
+                  <p
+                    key={msg.id}
+                    className={`mb-2 ${
+                      msg.senderId === user.uid ? "text-right text-blue-600" : "text-left text-gray-800"
+                    }`}
+                  >
+                    <strong>{msg.senderName || msg.senderId}:</strong> {msg.text}
+                  </p>
+                ))
+              ) : (
+                <p className="text-gray-500">No messages yet with this facilitator.</p>
+              )}
+            </div>
+            <div className="flex">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 border rounded p-2"
+              />
+              <button
+                onClick={sendMessage}
+                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded"
+              >
+                Send
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="text-gray-500">Select a facilitator to start chatting.</p>
+        )}
+      </div>
+    </div>
+  );
+}
