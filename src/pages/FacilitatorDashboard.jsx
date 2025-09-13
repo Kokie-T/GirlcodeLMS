@@ -10,74 +10,109 @@ import {
   FaBars,
   FaTimes,
   FaCalendarAlt,
+  FaUserPlus,
 } from "react-icons/fa";
-
-import { auth } from "../firebase"; // ✅ use firebase auth
+import { auth } from "../firebase";
 import Dashboard from "../components/Dashboard";
+import EnrollStudent from "./EnrollStudent";
+import Messages from "../components/MessagesPage";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
 import LearningMaterialsPage from "../components/LearningMaterialsPage";
 import CalendarPage from "../components/CalendarPage";
-import Messages from "../components/MessagesPage"; // ✅ import the new Messages component
 
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState("Dashboard");
-
-  // ✅ Profile & Settings
   const [darkMode, setDarkMode] = useState(
     () => JSON.parse(localStorage.getItem("darkMode")) || false
   );
-  const [language, setLanguage] = useState(
-    localStorage.getItem("language") || "English"
-  );
   const [profilePopup, setProfilePopup] = useState(false);
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [profileColor, setProfileColor] = useState(
     localStorage.getItem("profileColor") || "#4F46E5"
   );
-  const [firstName, setFirstName] = useState("John");
-  const [lastName, setLastName] = useState("Doe");
-  const [email, setEmail] = useState("johndoe@example.com");
-  const [password, setPassword] = useState("password123"); // optional mock password
+  const [user, setUser] = useState({
+    firstName: "John",
+    lastName: "Doe",
+    email: "johndoe@example.com",
+  });
 
-  /* ------------------- Effects ------------------- */
-  // Dark mode toggle
-  useEffect(() => {
-    if (darkMode) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-    localStorage.setItem("darkMode", JSON.stringify(darkMode));
-  }, [darkMode]);
+  const firstInitial = user.firstName?.[0] ?? "";
+  const lastInitial = user.lastName?.[0] ?? "";
 
-  const firstInitial = firstName?.[0] ?? "";
-  const lastInitial = lastName?.[0] ?? "";
-  // Persist language & profileColor
+  // Load Firebase user info
   useEffect(() => {
-    localStorage.setItem("language", language);
-  }, [language]);
-
-  useEffect(() => {
-    localStorage.setItem("profileColor", profileColor);
-  }, [profileColor]);
-
-  // ✅ Load Firebase user details
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      setEmail(user.email);
-      if (user.displayName) {
-        const [fName, lName] = user.displayName.split(" ");
-        setFirstName(fName || firstName);
-        setLastName(lName || lastName);
-      }
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      setUser((prev) => ({
+        ...prev,
+        email: currentUser.email,
+        firstName: currentUser.displayName?.split(" ")[0] || prev.firstName,
+        lastName: currentUser.displayName?.split(" ")[1] || prev.lastName,
+      }));
     }
   }, []);
+
+  // Persist dark mode & profile color
+  useEffect(() => {
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
+
+  useEffect(() => localStorage.setItem("profileColor", profileColor), [profileColor]);
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      setShowLogoutPopup(false);
+      window.location.href = "/login"; // redirect after logout
+    } catch (error) {
+      console.error("Logout failed:", error);
+      alert("Failed to logout. Try again.");
+    }
+  };
+
+  const sidebarItems = [
+    { icon: <FaTachometerAlt />, label: "Dashboard", page: "Dashboard" },
+    { icon: <FaUserPlus />, label: "Enroll Student", page: "Enroll" },
+    { icon: <FaEnvelope />, label: "Messages", page: "Messages" },
+    { icon: <FaBook />, label: "Course Management", page: "Courses" },
+    { icon: <FaCheckSquare />, label: "Grading", page: "Grading" },
+    { icon: <FaFileAlt />, label: "Learning Materials", page: "Materials" },
+    { icon: <FaCalendarAlt />, label: "Calendar", page: "Calendar" },
+  ];
+
+  // Render current page
+  const renderActivePage = () => {
+    switch (activePage) {
+      case "Dashboard":
+        return <Dashboard setActivePage={setActivePage} />;
+      case "Enroll":
+        return <EnrollStudent />;
+      case "Messages":
+        return <Messages />;
+      case "Courses":
+        return <CourseManagementPage />;
+      case "Grading":
+        return <GradingPage darkMode={darkMode} />;
+      case "Materials":
+        return <LearningMaterialsPage />;
+      case "Calendar":
+        return <CalendarPage />;
+      default:
+        return <Dashboard />;
+    }
+  };
 
   return (
     <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
       {/* Sidebar */}
-      <div
+      <aside
         className={`fixed md:static top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg flex flex-col justify-between transform transition-transform duration-300 z-50
-          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         <div>
           <button
@@ -96,61 +131,33 @@ export default function FacilitatorDashboard() {
           </h2>
 
           <nav className="mt-6 space-y-2">
-            <SidebarItem
-              icon={<FaTachometerAlt />}
-              label="Dashboard"
-              active={activePage === "Dashboard"}
-              onClick={() => setActivePage("Dashboard")}
-            />
-            <SidebarItem
-              icon={<FaEnvelope />}
-              label="Messages"
-              active={activePage === "Messages"}
-              onClick={() => setActivePage("Messages")}
-            />
-            <SidebarItem
-              icon={<FaBook />}
-              label="Course Management"
-              active={activePage === "Courses"}
-              onClick={() => setActivePage("Courses")}
-            />
-            <SidebarItem
-              icon={<FaCheckSquare />}
-              label="Grading"
-              active={activePage === "Grading"}
-              onClick={() => setActivePage("Grading")}
-            />
-            <SidebarItem
-              icon={<FaFileAlt />}
-              label="Learning Materials"
-              active={activePage === "Materials"}
-              onClick={() => setActivePage("Materials")}
-            />
-            <SidebarItem
-              icon={<FaCalendarAlt />}
-              label="Calendar"
-              active={activePage === "Calendar"}
-              onClick={() => setActivePage("Calendar")}
-            />
+            {sidebarItems.map((item, idx) => (
+              <SidebarItem
+                key={idx}
+                icon={item.icon}
+                label={item.label}
+                active={activePage === item.page}
+                onClick={() => setActivePage(item.page)}
+              />
+            ))}
           </nav>
         </div>
 
         <div className="p-4 border-t dark:border-gray-700">
           <button
-            onClick={() => {
-              if (window.confirm("Are you sure you want to logout?")) {
-                auth.signOut(); // ✅ log out user
-              }
-            }}
+            onClick={() => setShowLogoutPopup(true)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
           >
             <FaSignOutAlt /> Logout
           </button>
         </div>
-      </div>
+        {showLogoutPopup && (
+          <LogoutPopup onConfirm={handleLogout} onCancel={() => setShowLogoutPopup(false)} />
+        )}
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <button
             className="md:hidden p-2 bg-blue-500 text-white rounded-lg"
@@ -176,39 +183,23 @@ export default function FacilitatorDashboard() {
 
         {profilePopup && (
           <ProfilePopup
-            firstName={firstName}
-            lastName={lastName}
-            setFirstName={setFirstName}
-            setLastName={setLastName}
-            email={email}
-            setEmail={setEmail}
-            password={password}
-            setPassword={setPassword}
+            user={user}
+            setUser={setUser}
             darkMode={darkMode}
             setDarkMode={setDarkMode}
-            language={language}
-            setLanguage={setLanguage}
             profileColor={profileColor}
             setProfileColor={setProfileColor}
             close={() => setProfilePopup(false)}
           />
         )}
 
-        {/* Render Active Page */}
-      
-        {activePage === "Messages" && <Messages />} 
-        {activePage === "Dashboard" && <Dashboard setActivePage={setActivePage} />}
-        {activePage === "Messages" && <div>📩 Messages Page (Coming Soon)</div>}
-        {activePage === "Courses" && <CourseManagementPage />}
-        {activePage === "Grading" && <GradingPage darkMode={darkMode} />}
-        {activePage === "Materials" && <LearningMaterialsPage />}
-        {activePage === "Calendar" && <CalendarPage />}
-      </div>
+        {renderActivePage()}
+      </main>
     </div>
   );
 }
 
-/* ------------------- Sidebar Item ------------------- */
+/* Sidebar Item */
 const SidebarItem = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -222,96 +213,79 @@ const SidebarItem = ({ icon, label, active, onClick }) => (
   </button>
 );
 
-/* ------------------- Profile Popup ------------------- */
-const ProfilePopup = ({
-  firstName,
-  lastName,
-  setFirstName,
-  setLastName,
-  email,
-  setEmail,
-  password,
-  setPassword,
-  darkMode,
-  setDarkMode,
-  language,
-  setLanguage,
-  profileColor,
-  setProfileColor,
-  close,
-}) => {
-  const languages = ["English", "Afrikaans", "Zulu", "Xhosa"];
+/* Logout Popup */
+const LogoutPopup = ({ onConfirm, onCancel }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-80 relative">
+      <h2 className="text-lg font-semibold mb-4 dark:text-white">Confirm Logout</h2>
+      <p className="mb-6 dark:text-gray-300">
+        Are you sure you want to log out of your account?
+      </p>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 dark:text-white"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
+/* Profile Popup */
+const ProfilePopup = ({ user, setUser, darkMode, setDarkMode, profileColor, setProfileColor, close }) => {
+  const languages = ["English", "Afrikaans", "Zulu", "Xhosa"];
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative transition transform scale-95">
-        <button
-          className="absolute top-2 right-2 text-gray-500 dark:text-gray-200"
-          onClick={close}
-          aria-label="Close profile popup"
-        >
+        <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}>
           <FaTimes />
         </button>
-        <h2 className="text-lg font-semibold mb-4 dark:text-white">
-          Update Profile
-        </h2>
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
         <input
           type="text"
           placeholder="First Name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
+          value={user.firstName}
+          onChange={(e) => setUser((prev) => ({ ...prev, firstName: e.target.value }))}
           className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
         />
         <input
           type="text"
           placeholder="Last Name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
+          value={user.lastName}
+          onChange={(e) => setUser((prev) => ({ ...prev, lastName: e.target.value }))}
           className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
         />
         <input
           type="email"
           placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={user.email}
+          onChange={(e) => setUser((prev) => ({ ...prev, email: e.target.value }))}
           className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
         />
         <label className="flex items-center gap-2 mb-2 dark:text-white">
-          <input
-            type="checkbox"
-            checked={darkMode}
-            onChange={() => setDarkMode(!darkMode)}
-          />
-          Dark Mode
+          <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} /> Dark Mode
         </label>
         <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
+          value={languages[0]}
           className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
         >
-          {languages.map((lang, i) => (
-            <option key={i}>{lang}</option>
+          {languages.map((lang, idx) => (
+            <option key={idx}>{lang}</option>
           ))}
         </select>
         <label className="flex items-center gap-2 mb-4 dark:text-white">
           Avatar Background Color:
-          <input
-            type="color"
-            value={profileColor}
-            onChange={(e) => setProfileColor(e.target.value)}
-          />
+          <input type="color" value={profileColor} onChange={(e) => setProfileColor(e.target.value)} />
         </label>
-        <button
-          onClick={close}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:opacity-90"
-        >
+        <button onClick={close} className="bg-blue-500 text-white px-4 py-2 rounded hover:opacity-90">
           Save
         </button>
       </div>

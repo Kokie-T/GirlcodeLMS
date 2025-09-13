@@ -1,158 +1,146 @@
-// src/components/MessagesPage.jsx
+// MessagesPage.jsx
 import React, { useEffect, useState } from "react";
-import { db, auth } from "../firebase"; 
+import { db, auth } from "../firebase";
 import {
   collection,
-  getDocs,
   query,
   where,
-  orderBy,
+  getDocs,
   addDoc,
   serverTimestamp,
   onSnapshot,
-  doc,
-  getDoc
+  orderBy,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 export default function MessagesPage() {
-  const [learners, setLearners] = useState([]);
-  const [selectedLearner, setSelectedLearner] = useState("");
-  const [conversation, setConversation] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [conversationId, setConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [facilitator, setFacilitator] = useState(null);
 
-  // ✅ Track logged-in facilitator
+  // Track logged-in facilitator
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user)
         setFacilitator({
           uid: user.uid,
           name: user.displayName || user.email,
         });
-      } else {
-        setFacilitator(null);
-      }
+      else setFacilitator(null);
     });
     return () => unsubscribe();
   }, []);
 
-  // ✅ Fetch initial learners list from Firestore
+  // Fetch students
   useEffect(() => {
-    const fetchLearners = async () => {
+    const fetchStudents = async () => {
+      const q = query(collection(db, "users"), where("role", "==", "student"));
+      const snap = await getDocs(q);
+      setStudents(
+        snap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name || d.data().email,
+        }))
+      );
+    };
+    fetchStudents();
+  }, []);
+
+  // Handle selecting a student → find or create conversation
+  useEffect(() => {
+    if (!selectedStudent || !facilitator) return;
+
+    const fetchOrCreateConversation = async () => {
       try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("role", "==", "Learner"));
-        const snapshot = await getDocs(q);
-        const learnersData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setLearners(learnersData);
+        // 🔍 Find existing conversation with facilitator + student
+        const convQ = query(
+          collection(db, "conversations"),
+          where("participants", "array-contains", facilitator.uid)
+        );
+        const convSnap = await getDocs(convQ);
+
+        let convId;
+        const existingConv = convSnap.docs.find((doc) =>
+          doc.data().participants.includes(selectedStudent)
+        );
+
+        if (existingConv) {
+          convId = existingConv.id;
+        } else {
+          // 🚀 Create new conversation
+          const newConvRef = await addDoc(collection(db, "conversations"), {
+            participants: [facilitator.uid, selectedStudent],
+            createdAt: serverTimestamp(),
+          });
+          convId = newConvRef.id;
+        }
+
+        // ✅ Save conversationId
+        setConversationId(convId);
+        console.log("Conversation ID set to:", convId);
+
+        // 🔔 Real-time listener for messages
+        const msgsRef = collection(db, "conversations", convId, "messages");
+        const msgsQ = query(msgsRef, orderBy("timestamp", "asc"));
+
+        const unsubscribeMsgs = onSnapshot(msgsQ, (snap) => {
+          setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        });
+
+        return () => unsubscribeMsgs();
       } catch (error) {
-        console.error("Error fetching learners:", error);
+        console.error("Error fetching/creating conversation:", error);
       }
     };
-    fetchLearners();
-  }, []);
 
-  // ✅ Real-time listener for all messages involving facilitator
-  useEffect(() => {
-    if (!facilitator) return;
+    fetchOrCreateConversation();
+  }, [selectedStudent, facilitator]);
 
-    const convRef = collection(db, "conversations");
-    const q = query(
-      convRef,
-      where("participants", "array-contains", facilitator.uid),
-      orderBy("timestamp", "asc")
-    );
+  // Send message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !conversationId || !facilitator) return;
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const allMsgs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-      // Filter conversation if a learner is selected
-      if (selectedLearner) {
-        const filtered = allMsgs.filter((msg) =>
-          msg.participants.includes(selectedLearner)
-        );
-        setConversation(filtered);
-      }
-
-      // Update learners dropdown to include any new learners who sent messages
-      const learnerIds = allMsgs
-        .filter((msg) => msg.senderRole === "Learner")
-        .map((msg) => msg.senderId);
-
-      const uniqueLearners = [...new Set([...learners.map(l => l.id), ...learnerIds])];
-
-      // Fetch learner names if new ones appear
-      const updatedLearners = await Promise.all(
-        uniqueLearners.map(async (uid) => {
-          const existing = learners.find((l) => l.id === uid);
-          if (existing) return existing;
-          const docRef = doc(db, "users", uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            return { id: uid, name: docSnap.data().name || uid };
-          }
-          return { id: uid, name: uid };
-        })
-      );
-
-      setLearners(updatedLearners);
+    await addDoc(collection(db, "conversations", conversationId, "messages"), {
+      senderId: facilitator.uid,
+      senderName: facilitator.name,
+      senderRole: "Facilitator",
+      text: newMessage,
+      timestamp: serverTimestamp(),
+      seen: false,
     });
 
-    return () => unsubscribe();
-  }, [facilitator, selectedLearner, learners]);
-
-  // ✅ Send new message
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedLearner || !facilitator) return;
-
-    try {
-      const convRef = collection(db, "conversations");
-      await addDoc(convRef, {
-        participants: [selectedLearner, facilitator.uid],
-        senderId: facilitator.uid,
-        senderRole: "Facilitator",
-        senderName: facilitator.name,
-        text: newMessage,
-        timestamp: serverTimestamp(),
-      });
-
-      setNewMessage("");
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
+    setNewMessage("");
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Messages</h2>
+    <div className="max-w-4xl mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-6">Messages</h2>
 
-      {/* Learner dropdown */}
       <select
-        value={selectedLearner}
-        onChange={(e) => setSelectedLearner(e.target.value)}
-        className="w-full p-2 border rounded mb-4"
+        value={selectedStudent}
+        onChange={(e) => setSelectedStudent(e.target.value)}
+        className="w-full p-3 border rounded-lg mb-6"
       >
-        <option value="">Select a Learner</option>
-        {learners.map((learner) => (
-          <option key={learner.id} value={learner.id}>
-            {learner.name}
+        <option value="">Select a student</option>
+        {students.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
           </option>
         ))}
       </select>
 
-      {/* Conversation */}
-      {selectedLearner ? (
-        <div className="border rounded p-4 h-96 flex flex-col justify-between">
-          <div className="overflow-y-auto flex-1 mb-4">
-            {conversation.length > 0 ? (
-              conversation.map((msg) => (
+      {selectedStudent ? (
+        <div className="flex flex-col h-[500px] border rounded-lg p-4 bg-white dark:bg-gray-800">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+            {messages.length > 0 ? (
+              messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`mb-2 p-2 rounded max-w-xs ${
+                  className={`p-2 rounded-lg max-w-xs break-words ${
                     msg.senderRole === "Facilitator"
                       ? "bg-blue-100 text-blue-800 ml-auto"
                       : "bg-gray-200 text-gray-800 mr-auto"
@@ -162,29 +150,30 @@ export default function MessagesPage() {
                 </div>
               ))
             ) : (
-              <p>No messages yet with this learner.</p>
+              <p>No messages yet with this student.</p>
             )}
           </div>
 
-          {/* Input box for new messages */}
+          {/* Input + Send */}
           <div className="flex gap-2">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 p-2 border rounded"
+              className="flex-1 p-2 border rounded-lg"
             />
             <button
               onClick={handleSendMessage}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              disabled={!conversationId}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
             >
               Send
             </button>
           </div>
         </div>
       ) : (
-        <p>Please select a learner to view or send messages.</p>
+        <p>Please select a student to view or send messages.</p>
       )}
     </div>
   );

@@ -1,73 +1,137 @@
 // Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { FaUsers, FaCheckSquare, FaBook, FaEnvelope } from "react-icons/fa";
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
-import { auth, db } from "../firebase"; // adjust your firebase import
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+} from "firebase/firestore";
+import { auth, db } from "../firebase";
 import toast from "react-hot-toast";
 
-const Dashboard = ({setActivePage}) => {
-  const [totalLearners, setTotalLearners] = useState(0);
+const Dashboard = ({ setActivePage }) => {
+  const [totalStudents, setTotalStudents] = useState(0);
   const [activeCourses, setActiveCourses] = useState(0);
   const [pendingGrades, setPendingGrades] = useState(0);
   const [messages, setMessages] = useState(0);
   const [recentActivity, setRecentActivity] = useState([]);
 
+  // --- Real-time total students ---
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const facilitatorId = auth.currentUser.uid;
+    const q = query(collection(db, "users"), where("role", "==", "student"));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setTotalStudents(snap.size);
+    });
+    return () => unsubscribe();
+  }, []);
 
-        // Total learners
-        const usersSnapshot = await getDocs(collection(db, "Users"));
-        setTotalLearners(usersSnapshot.docs.length);
+  // --- Real-time active courses ---
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "courses"), (snap) => {
+      setActiveCourses(snap.size);
+    });
+    return () => unsubscribe();
+  }, []);
 
-        // Active courses
-        const coursesSnapshot = await getDocs(collection(db, "Courses"));
-        setActiveCourses(coursesSnapshot.docs.length);
+  // --- Real-time pending grades ---
+  useEffect(() => {
+    const q = query(
+      collection(db, "Submissions"),
+      where("graded", "==", false)
+    );
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setPendingGrades(snap.size);
+    });
+    return () => unsubscribe();
+  }, []);
 
-        // Pending grades (example: submissions with graded = false)
-        const submissionsSnapshot = await getDocs(
-          query(collection(db, "Submissions"), where("graded", "==", false))
-        );
-        setPendingGrades(submissionsSnapshot.docs.length);
-
-        // Unread messages for this facilitator
-        const messagesSnapshot = await getDocs(
-          query(collection(db, "Conversations"), where("recipientId", "==", facilitatorId), where("read", "==", false))
-        );
-        setMessages(messagesSnapshot.docs.length);
-
-        // Recent activity (latest 5 announcements)
-        const announcementsSnapshot = await getDocs(
-          query(collection(db, "Announcements"), orderBy("timestamp", "desc"), limit(5))
-        );
-        const recent = announcementsSnapshot.docs.map((doc) => ({
+  // --- Real-time recent activity (last 5 announcements) ---
+  useEffect(() => {
+    const q = query(
+      collection(db, "announcements"),
+      orderBy("timestamp", "desc"),
+      limit(5)
+    );
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setRecentActivity(
+        snap.docs.map((doc) => ({
           title: doc.data().title,
           subtitle: doc.data().description || "",
-        }));
-        setRecentActivity(recent);
+        }))
+      );
+    });
+    return () => unsubscribe();
+  }, []);
 
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      }
-      
-    };
+  // --- Real-time unread messages ---
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const facilitatorId = auth.currentUser.uid;
 
-    fetchData();
+    const convQ = query(
+      collection(db, "conversations"),
+      where("participants", "array-contains", facilitatorId)
+    );
+
+    const unsubscribe = onSnapshot(convQ, (convSnap) => {
+      let totalUnread = 0;
+
+      convSnap.docs.forEach((convDoc) => {
+        const msgsRef = collection(db, "conversations", convDoc.id, "messages");
+        const unreadQ = query(
+          msgsRef,
+          where("seen", "==", false),
+          where("senderId", "!=", facilitatorId)
+        );
+
+        // nested listener for each conversation
+        onSnapshot(unreadQ, (unreadSnap) => {
+          totalUnread += unreadSnap.size;
+          setMessages(totalUnread);
+        });
+      });
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const stats = [
-    { number: totalLearners, label: "Total Students", icon: <FaUsers />, color: "text-blue-600" },
-    { number: pendingGrades, label: "Pending Grades", icon: <FaCheckSquare />, color: "text-green-600" },
-    { number: activeCourses, label: "Active Courses", icon: <FaBook />, color: "text-yellow-600" },
-    { number: messages, label: "Messages", icon: <FaEnvelope />, color: "text-purple-600" },
+    {
+      number: totalStudents,
+      label: "Total Students",
+      icon: <FaUsers />,
+      color: "text-blue-600",
+    },
+    {
+      number: pendingGrades,
+      label: "Pending Grades",
+      icon: <FaCheckSquare />,
+      color: "text-green-600",
+    },
+    {
+      number: activeCourses,
+      label: "Active Courses",
+      icon: <FaBook />,
+      color: "text-yellow-600",
+    },
+    {
+      number: messages,
+      label: "Messages",
+      icon: <FaEnvelope />,
+      color: "text-purple-600",
+    },
   ];
 
   const quickActions = [
-    { text: "Post New Material", color: "bg-blue-600",page: "Materials"},
-    { text: "Grade Assignments", color: "bg-green-600",page: "Grading"},
-    { text: "Send Announcement", color: "bg-purple-600",page: "Announcements"},
+    { text: "Post New Material", color: "bg-blue-600", page: "Materials" },
+    { text: "Grade Assignments", color: "bg-green-600", page: "Grading" },
+    { text: "Send Announcement", color: "bg-purple-600", page: "Announcements" },
+    { text: "Enroll Student", color: "bg-yellow-600", page: "Enroll" },
   ];
+
   const handleAction = (action) => {
     toast.success(`Navigating to ${action.text}...`);
     setActivePage(action.page);
@@ -75,7 +139,7 @@ const Dashboard = ({setActivePage}) => {
 
   return (
     <div>
-      {/* Stats Cards */}
+      {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {stats.map((stat, i) => (
           <StatCard key={i} {...stat} />
@@ -85,7 +149,9 @@ const Dashboard = ({setActivePage}) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow p-5">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">Recent Activity</h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">
+            Recent Activity
+          </h2>
           {recentActivity.length > 0 ? (
             recentActivity.map((act, i) => <ActivityItem key={i} {...act} />)
           ) : (
@@ -95,12 +161,14 @@ const Dashboard = ({setActivePage}) => {
 
         {/* Quick Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">Quick Actions</h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">
+            Quick Actions
+          </h2>
           {quickActions.map((action, i) => (
-            <ActionButton 
-            key={i}
-            {...action}
-            onClick={() => handleAction(action)}
+            <ActionButton
+              key={i}
+              {...action}
+              onClick={() => handleAction(action)}
             />
           ))}
         </div>
@@ -109,7 +177,7 @@ const Dashboard = ({setActivePage}) => {
   );
 };
 
-// ------------------- Helper Components -------------------
+// --- Components ---
 const StatCard = ({ number, label, icon, color }) => (
   <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 flex items-center justify-between">
     <div>
@@ -135,6 +203,5 @@ const ActionButton = ({ color, text, onClick }) => (
     {text}
   </button>
 );
-
 
 export default Dashboard;

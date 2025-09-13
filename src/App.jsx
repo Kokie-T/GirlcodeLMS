@@ -25,7 +25,7 @@ import ManageStudents from './pages/ManageStudents';
 import NotificationsPage from './pages/NotificationsPage';
 import ContactUs from "./pages/contact";
 import QuizViewer from "./pages/QuizViewer";
-import EnrollStudent from './pages/Enrollstudent';
+import EnrollStudent from './pages/EnrollStudent';
 import CourseManagementPage from "./components/CourseManagementPage";
 import GradingPage from "./components/GradingPage";
 import LearningMaterialsPage from "./components/LearningMaterialsPage";

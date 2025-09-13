@@ -1,52 +1,96 @@
-import React, { useState, useEffect } from "react";
+// src/pages/EnrollStudent.jsx
+import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
+import { collection, getDocs, addDoc } from "firebase/firestore";
 
 export default function EnrollStudent() {
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Fetch students
+  // Fetch students, courses, and enrollments
   useEffect(() => {
-    const fetchStudents = async () => {
-      const snapshot = await getDocs(collection(db, "students"));
-      setStudents(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const fetchData = async () => {
+      try {
+        // Students
+        const studentsSnap = await getDocs(collection(db, "users"));
+        const studentsData = studentsSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(u => u.role === "student"); // only students
+        setStudents(studentsData);
+
+        // Courses
+        const coursesSnap = await getDocs(collection(db, "courses"));
+        const coursesData = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Enrollments
+        const enrollSnap = await getDocs(collection(db, "enrollments"));
+        const enrollmentsData = enrollSnap.docs.map(doc => doc.data());
+        setEnrollments(enrollmentsData);
+
+        // Compute enrolled count
+        const coursesWithCount = coursesData.map(course => ({
+          ...course,
+          enrolledCount: enrollmentsData.filter(e => e.courseId === course.id).length,
+        }));
+
+        setCourses(coursesWithCount);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      }
     };
-    fetchStudents();
+
+    fetchData();
   }, []);
 
-  // Fetch courses
-  useEffect(() => {
-    const fetchCourses = async () => {
-      const snapshot = await getDocs(collection(db, "courses"));
-      setCourses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    };
-    fetchCourses();
-  }, []);
+  // Filter courses for selected student
+  const availableCourses = selectedStudent
+    ? courses.filter(
+        course =>
+          !enrollments.some(
+            e => e.studentId === selectedStudent && e.courseId === course.id
+          )
+      )
+    : courses;
 
   const handleEnroll = async () => {
-    if (!selectedStudent || !selectedCourse) return alert("Select both!");
+    if (!selectedStudent || !selectedCourse) {
+      return alert("Please select both student and course!");
+    }
+
+    const confirm = window.confirm("Are you sure you want to enroll this student?");
+    if (!confirm) return;
+
     setLoading(true);
     try {
-      const courseRef = doc(db, "courses", selectedCourse);
-      await updateDoc(courseRef, {
-        assignedLearners: arrayUnion(selectedStudent),
+      await addDoc(collection(db, "enrollments"), {
+        studentId: selectedStudent,
+        courseId: selectedCourse,
+        enrolledAt: new Date(),
       });
-      alert("Student enrolled successfully!");
+
+      alert("✅ Student enrolled successfully!");
       setSelectedStudent("");
       setSelectedCourse("");
-    } catch (error) {
-      console.error("Enrollment error:", error);
-      alert("Failed to enroll student.");
+
+      // Refresh enrollments
+      const enrollSnap = await getDocs(collection(db, "enrollments"));
+      const enrollmentsData = enrollSnap.docs.map(doc => doc.data());
+      setEnrollments(enrollmentsData);
+
+      // Update enrolled count
+      setCourses(prev =>
+        prev.map(course => ({
+          ...course,
+          enrolledCount: enrollmentsData.filter(e => e.courseId === course.id).length,
+        }))
+      );
+    } catch (err) {
+      console.error("Enrollment failed:", err);
+      alert("❌ Failed to enroll student.");
     }
     setLoading(false);
   };
@@ -58,11 +102,11 @@ export default function EnrollStudent() {
       <div className="space-y-4 max-w-md">
         <select
           value={selectedStudent}
-          onChange={(e) => setSelectedStudent(e.target.value)}
+          onChange={e => setSelectedStudent(e.target.value)}
           className="w-full p-3 border rounded"
         >
           <option value="">Select Student</option>
-          {students.map((s) => (
+          {students.map(s => (
             <option key={s.id} value={s.id}>
               {s.name} ({s.email})
             </option>
@@ -71,13 +115,13 @@ export default function EnrollStudent() {
 
         <select
           value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
+          onChange={e => setSelectedCourse(e.target.value)}
           className="w-full p-3 border rounded"
         >
           <option value="">Select Course</option>
-          {courses.map((c) => (
+          {availableCourses.map(c => (
             <option key={c.id} value={c.id}>
-              {c.title}
+              {c.title} ({c.enrolledCount} enrolled)
             </option>
           ))}
         </select>

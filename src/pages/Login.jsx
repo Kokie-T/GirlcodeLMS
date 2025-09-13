@@ -32,7 +32,7 @@ export default function Login() {
       return;
     }
     const role = userDoc.data().role;
-    if (role === "Learner") navigate("/learner-dashboard");
+    if (role === "student") navigate("/learner-dashboard");
     else if (role === "Facilitator") navigate("/facilitator-dashboard");
     else if (role === "Admin") navigate("/admin-dashboard");
     else navigate("/");

@@ -1,5 +1,5 @@
 // src/components/LearnerMessages.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import {
@@ -23,7 +23,9 @@ export default function LearnerMessages() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
 
-  // ✅ Track logged-in learner
+  const facilitatorsRef = useRef([]);
+
+  // Track logged-in learner
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
@@ -32,77 +34,98 @@ export default function LearnerMessages() {
     return () => unsubscribe();
   }, [auth]);
 
-  // ✅ Fetch initial facilitators list
+  // Fetch initial facilitators list
   useEffect(() => {
     const fetchFacilitators = async () => {
       const facQ = query(collection(db, "users"), where("role", "==", "Facilitator"));
       const facSnap = await getDocs(facQ);
-      setFacilitators(facSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const facList = facSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFacilitators(facList);
+      facilitatorsRef.current = facList;
     };
     fetchFacilitators();
   }, []);
 
-  // ✅ Real-time listener for all messages involving learner
+  // Listen for all conversations involving learner
   useEffect(() => {
     if (!user) return;
 
     const convRef = collection(db, "conversations");
-    const chatQ = query(convRef, where("participants", "array-contains", user.uid), orderBy("timestamp", "asc"));
+    const chatQ = query(convRef, where("participants", "array-contains", user.uid));
 
     const unsub = onSnapshot(chatQ, async (snap) => {
-      const allMsgs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const allConversations = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // Update conversation if facilitator is selected
+      // If a facilitator is selected, show only relevant messages
       if (selectedFacilitator) {
-        const filtered = allMsgs.filter(msg =>
-          msg.participants.includes(selectedFacilitator.id)
+        const conv = allConversations.find(c =>
+          c.participants.includes(selectedFacilitator.id)
         );
-        setMessages(filtered);
+        if (conv) {
+          const msgRef = collection(db, "conversations", conv.id, "messages");
+          const msgQ = query(msgRef, orderBy("timestamp", "asc"));
+          onSnapshot(msgQ, (msgSnap) => {
+            setMessages(msgSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+          });
+        } else {
+          setMessages([]);
+        }
       }
 
-      // Update facilitator list dynamically
-      const facIds = allMsgs
-        .filter(msg => msg.senderId !== user.uid)
-        .map(msg => msg.senderId);
+      // Dynamically update facilitators list
+      const allFacIds = allConversations
+        .flatMap(c => c.participants)
+        .filter(id => id !== user.uid);
 
-      const uniqueFacIds = [...new Set([...facilitators.map(f => f.id), ...facIds])];
+      const uniqueFacIds = [...new Set([...facilitatorsRef.current.map(f => f.id), ...allFacIds])];
 
-      const updatedFacilitators = await Promise.all(
-        uniqueFacIds.map(async (id) => {
-          const existing = facilitators.find(f => f.id === id);
-          if (existing) return existing;
-
-          const docRef = doc(db, "users", id);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) return { id, ...docSnap.data() };
-          return { id, fullname: id };
-        })
-      );
+      const updatedFacilitators = await Promise.all(uniqueFacIds.map(async id => {
+        const existing = facilitatorsRef.current.find(f => f.id === id);
+        if (existing) return existing;
+        const docRef = doc(db, "users", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) return { id, ...docSnap.data() };
+        return { id, fullname: id };
+      }));
 
       setFacilitators(updatedFacilitators);
+      facilitatorsRef.current = updatedFacilitators;
     });
 
     return () => unsub();
-  }, [user, selectedFacilitator, facilitators]);
+  }, [user, selectedFacilitator]);
 
-  // ✅ Send message
+  // Send message
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedFacilitator || !user) return;
 
-    try {
-      await addDoc(collection(db, "conversations"), {
-        senderId: user.uid,
-        senderRole: "Learner",
-        senderName: user.displayName || user.email,
-        text: newMessage,
+    const convRef = collection(db, "conversations");
+    const convQ = query(convRef, where("participants", "array-contains", user.uid));
+    const snap = await getDocs(convQ);
+
+    let conversation = snap.docs.find(d => d.data().participants.includes(selectedFacilitator.id));
+
+    // If conversation does not exist, create it
+    if (!conversation) {
+      const newConvRef = await addDoc(convRef, {
         participants: [user.uid, selectedFacilitator.id],
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
       });
-      setNewMessage("");
-    } catch (err) {
-      console.error("Error sending message:", err);
+      conversation = await getDoc(newConvRef);
     }
+
+    await addDoc(collection(db, "conversations", conversation.id, "messages"), {
+      senderId: user.uid,
+      senderRole: "Learner",
+      senderName: user.displayName || user.email,
+      text: newMessage,
+      timestamp: serverTimestamp(),
+    });
+
+    setNewMessage("");
   };
+
+  if (!user) return <p>Loading messages...</p>;
 
   return (
     <div className="flex h-screen">
@@ -110,7 +133,7 @@ export default function LearnerMessages() {
       <div className="w-1/3 border-r p-4 overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4">Facilitators</h2>
         <ul>
-          {facilitators.map((f) => (
+          {facilitators.map(f => (
             <li
               key={f.id}
               onClick={() => setSelectedFacilitator(f)}
@@ -133,14 +156,14 @@ export default function LearnerMessages() {
             </h2>
             <div className="flex-1 overflow-y-auto border rounded p-3 mb-3">
               {messages.length > 0 ? (
-                messages.map((msg) => (
+                messages.map(msg => (
                   <p
                     key={msg.id}
                     className={`mb-2 ${
                       msg.senderId === user.uid ? "text-right text-blue-600" : "text-left text-gray-800"
                     }`}
                   >
-                    <strong>{msg.senderName || msg.senderId}:</strong> {msg.text}
+                    <strong>{msg.senderName || msg.senderRole || msg.senderId}:</strong> {msg.text}
                   </p>
                 ))
               ) : (
