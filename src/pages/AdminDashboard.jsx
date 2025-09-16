@@ -1,12 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import Overview from "./Reports";
+import {
+  collection,
+  getDocs,
+} from "firebase/firestore";
+
+import Overview from "./Overview";
 import UsersManagement from "./UsersManagement";
 import FacilitatorsManagement from "./FacilitatorsManagement";
 import CoursesManagement from "./ContentManagement";
 import SystemSettings from "./SystemSettings";
+import ReportsPage from "./Reports";
+import MessagesPage from "./MessagesPage"; // new messages page
+
 
 import {
   FaUsers,
@@ -17,12 +25,21 @@ import {
   FaBars,
   FaTimes,
   FaChartBar,
+  FaEnvelope,
 } from "react-icons/fa";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [adminEmail, setAdminEmail] = useState("");
   const navigate = useNavigate();
+
+  // Get current admin email
+  useEffect(() => {
+    if (auth.currentUser) {
+      setAdminEmail(auth.currentUser.email);
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -36,17 +53,21 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <div>📊 <Overview /></div>;
+        return <Overview />;
       case "users":
-        return <div>👥 <UsersManagement /></div>;
+        return <UsersManagement />;
       case "facilitators":
-        return <div>👨‍🏫 <FacilitatorsManagement /></div>;
+        return <FacilitatorsManagement />;
       case "courses":
-        return <div>📚 <CoursesManagement /></div>;
+        return <CoursesManagement />;
+      case "reports":
+        return <ReportsPage />;
+      case "messages":
+        return <MessagesPage />; // Messages tab
       case "settings":
-        return <div>⚙️ <SystemSettings /></div>;
+        return <SystemSettings />;
       default:
-        return <div>📊 <Overview /></div>;
+        return <Overview />;
     }
   };
 
@@ -54,7 +75,7 @@ export default function AdminDashboard() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div
-        className={`fixed md:static top-0 left-0 h-full bg-gradient-to-br from-indigo-500 to-purple-400 text-white flex flex-col p-5 transform transition-transform duration-300 z-50
+        className={`fixed md:static top-0 left-0 h-full bg-gradient-to-br from-blue-600 to-teal-500 text-white flex flex-col p-5 transform transition-transform duration-300 z-50
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 w-64`}
       >
         {/* Close button on mobile */}
@@ -65,62 +86,34 @@ export default function AdminDashboard() {
           <FaTimes />
         </button>
 
-        <h3 className="text-2xl font-bold text-center mb-8">Admin</h3>
+        {/* LMS Pro + Admin Portal */}
+        <div className="text-center mb-8">
+          <h1 className="text-xl font-bold">LMS Pro</h1>
+          <h2 className="text-sm font-medium mt-1">Admin Portal</h2>
+        </div>
 
-        <button
-          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
-            activeTab === "overview"
-              ? "bg-white text-indigo-600 font-semibold"
-              : "hover:bg-white/20"
-          }`}
-          onClick={() => setActiveTab("overview")}
-        >
-          <FaChartBar /> Overview
-        </button>
-
-        <button
-          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
-            activeTab === "users"
-              ? "bg-white text-indigo-600 font-semibold"
-              : "hover:bg-white/20"
-          }`}
-          onClick={() => setActiveTab("users")}
-        >
-          <FaUsers /> Users
-        </button>
-
-        <button
-          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
-            activeTab === "facilitators"
-              ? "bg-white text-indigo-600 font-semibold"
-              : "hover:bg-white/20"
-          }`}
-          onClick={() => setActiveTab("facilitators")}
-        >
-          <FaUserTie /> Facilitators
-        </button>
-
-        <button
-          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
-            activeTab === "courses"
-              ? "bg-white text-indigo-600 font-semibold"
-              : "hover:bg-white/20"
-          }`}
-          onClick={() => setActiveTab("courses")}
-        >
-          <FaBook /> Courses
-        </button>
-
-        <button
-          className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
-            activeTab === "settings"
-              ? "bg-white text-indigo-600 font-semibold"
-              : "hover:bg-white/20"
-          }`}
-          onClick={() => setActiveTab("settings")}
-        >
-          <FaCog /> Settings
-        </button>
+        {/* Sidebar buttons */}
+        {[
+          { key: "overview", icon: <FaChartBar />, label: "Overview" },
+          { key: "users", icon: <FaUsers />, label: "Users" },
+          { key: "facilitators", icon: <FaUserTie />, label: "Facilitators" },
+          { key: "courses", icon: <FaBook />, label: "Courses" },
+          { key: "messages", icon: <FaEnvelope />, label: "Messages" }, // new
+          { key: "reports", icon: <FaBook />, label: "Reports" },
+          { key: "settings", icon: <FaCog />, label: "Settings" },
+        ].map((item) => (
+          <button
+            key={item.key}
+            className={`flex items-center gap-3 px-4 py-2 rounded-lg mb-2 transition ${
+              activeTab === item.key
+                ? "bg-white text-blue-700 font-semibold shadow-md"
+                : "hover:bg-white/20"
+            }`}
+            onClick={() => setActiveTab(item.key)}
+          >
+            {item.icon} {item.label}
+          </button>
+        ))}
 
         <div className="flex-grow" />
 
@@ -133,17 +126,30 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 bg-gray-50 overflow-y-auto">
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden mb-4 p-2 bg-indigo-500 text-white rounded-lg"
-          onClick={() => setIsSidebarOpen(true)}
-        >
-          <FaBars />
-        </button>
+      <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+        {/* Top header */}
+        <div className="flex justify-between items-center bg-white shadow px-6 py-4">
+          <h2 className="text-2xl font-bold capitalize">{activeTab}</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600">{adminEmail}</span>
+            <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+              {adminEmail ? adminEmail.charAt(0).toUpperCase() : "A"}
+            </div>
+          </div>
+        </div>
 
-        <h2 className="text-2xl font-bold mb-4 capitalize">{activeTab}</h2>
-        <div className="bg-white rounded-xl shadow p-5">{renderContent()}</div>
+        {/* Mobile Menu Button */}
+        <div className="md:hidden p-4">
+          <button
+            className="p-2 bg-blue-600 text-white rounded-lg"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <FaBars />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">{renderContent()}</div>
       </div>
     </div>
   );

@@ -32,6 +32,9 @@ import LearningMaterialsPage from "./components/LearningMaterialsPage";
 import CalendarPage from "./components/CalendarPage";
 import LearnerMessages from "./components/LearnerMessages";
 
+// ✅ Import the new success page
+import SignupSuccess from './pages/SignupSuccess';
+
 function AppContent() {
   const location = useLocation();
 
@@ -45,6 +48,7 @@ function AppContent() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/signup-success" element={<SignupSuccess />} /> {/* ✅ Added success route */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/course/:id" element={<CourseContent />} />
 
