@@ -1,31 +1,120 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
-import { db } from "../firebase";
 import {
   doc,
   getDoc,
-  updateDoc,
   collection,
   query,
   where,
   orderBy,
   onSnapshot,
-  addDoc,
-  serverTimestamp,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
+import { db } from "../firebase";
 import {
-  HiOutlineHome,
-  HiOutlineBookOpen,
-  HiOutlineUser,
-  HiOutlineLogout,
   HiMenu,
   HiX,
   HiBell,
   HiChatAlt2,
+  HiUser,
+  HiHome,
+  HiBookOpen,
+  HiLogout,
 } from "react-icons/hi";
 
+// ---------- Sidebar Item ----------
+const SidebarItem = ({ icon, name, onClick }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:scale-105 transition transform duration-200"
+  >
+    <span className="text-lg">{icon}</span>
+    {name}
+  </button>
+);
+
+// ---------- Course Card ----------
+const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNavigate }) => {
+  const isExpanded = expanded[course.id];
+  const contentProgress = course.progress || 0;
+  const totalWidth = Math.min(contentProgress + avgScore, 100);
+  const contentWidth = Math.min(contentProgress, totalWidth);
+  const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out flex flex-col gap-3">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-gray-800 font-medium">{course.title}</h3>
+        <button
+          onClick={() => onToggleExpand(course.id)}
+          className="text-blue-500 text-sm"
+        >
+          {isExpanded ? "Hide History" : "Show History"}
+        </button>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
+        <div
+          className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out"
+          style={{ width: `${contentWidth}%` }}
+        />
+        <div
+          className="absolute left-0 top-0 h-4 bg-pink-400 transition-all duration-700 ease-out opacity-70"
+          style={{ width: `${quizWidth}%` }}
+        />
+      </div>
+      <p className="text-sm text-gray-500 mb-3">
+        Content: {contentProgress}%, Quiz Avg: {avgScore}%
+      </p>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2 mb-2">
+        <button
+          onClick={() => onNavigate(`/quiz/${course.id}`)}
+          className="px-3 py-1 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-lg text-sm hover:opacity-90 hover:scale-105 transition transform duration-200"
+        >
+          Take Quiz
+        </button>
+        <button
+          onClick={() => onNavigate(`/course-materials/${course.id}`)}
+          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 hover:scale-105 transition transform duration-200"
+        >
+          Materials
+        </button>
+        <button
+          onClick={() => onNavigate(`/messages/${course.id}`)}
+          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 hover:scale-105 transition transform duration-200"
+        >
+          Messages
+        </button>
+      </div>
+
+      {/* History */}
+      {isExpanded && history.length > 0 && (
+        <div className="mt-3 bg-gray-50 p-3 rounded-lg">
+          <h4 className="font-semibold mb-2">Past Quiz Attempts</h4>
+          <ul className="space-y-2 text-gray-700 text-sm">
+            {history.map((attempt, idx) => (
+              <li key={idx} className="flex justify-between border-b border-gray-200 pb-1">
+                <span>Attempt {history.length - idx}</span>
+                <span>
+                  {attempt.score}% -{" "}
+                  {attempt.date.toLocaleDateString()}{" "}
+                  {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------- Learner Dashboard ----------
 export default function LearnerDashboard() {
   const navigate = useNavigate();
   const auth = getAuth();
@@ -39,162 +128,103 @@ export default function LearnerDashboard() {
   const [history, setHistory] = useState({});
   const [expanded, setExpanded] = useState({});
   const [notifOpen, setNotifOpen] = useState(false);
-  const [msgOpen, setMsgOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [facilitators, setFacilitators] = useState([]);
-  const [selectedFacilitator, setSelectedFacilitator] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-
-
-  const facilitatorsRef = useRef([]);
-
-  // --- Fetch learner profile and notifications ---
+  // --- Fetch user profile ---
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
-      try {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
+    const fetchUser = async () => {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setFormData({
-            fullname: data.fullname || "",
-            email: data.email || user.email,
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        setFormData({ fullname: data.fullname || "", email: data.email || user.email });
+        setAvatar(data.avatar || null);
+      }
+    };
+
+    fetchUser();
+  }, [user]);
+
+  // --- Fetch enrolled courses from enrollments ---
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCourses = async () => {
+      try {
+        const enrollSnap = await getDocs(
+          query(collection(db, "enrollments"), where("studentId", "==", user.uid))
+        );
+
+        const courseIds = enrollSnap.docs.map(doc => doc.data().courseId);
+        if (courseIds.length === 0) return setEnrolledCourses([]);
+
+        const courses = [];
+        for (let i = 0; i < courseIds.length; i += 10) {
+          const batchIds = courseIds.slice(i, i + 10);
+          const batchSnap = await getDocs(
+            query(collection(db, "courses"), where("__name__", "in", batchIds))
+          );
+
+          batchSnap.docs.forEach(doc => {
+            const enrollmentData = enrollSnap.docs.find(e => e.data().courseId === doc.id)?.data();
+            courses.push({
+              id: doc.id,
+              title: doc.data().title || "Untitled Course",
+              progress: enrollmentData?.progress || 0,
+            });
           });
-          setAvatar(data.avatar || null); // ✅ load avatar from Firestore
-          setEnrolledCourses(data.courses || []);
         }
 
-        // Notifications
-        const notifQ = query(
-          collection(db, "users", user.uid, "notifications"),
-          orderBy("createdAt", "desc")
-        );
-        const unsubNotif = onSnapshot(notifQ, (snap) => {
-          setNotifications(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-        });
-
-        return () => unsubNotif();
+        setEnrolledCourses(courses);
       } catch (err) {
-        console.error("Error fetching learner data:", err);
+        console.error("Failed to fetch enrolled courses:", err);
       }
     };
 
-    fetchData();
+    fetchCourses();
   }, [user]);
 
-  // --- Fetch results and facilitators ---
+  // --- Fetch quiz results ---
   useEffect(() => {
     if (!user) return;
 
-    const fetchResultsAndFacilitators = async () => {
-      try {
-        // Results
-        const qResults = query(
-          collection(db, "results"),
-          where("userId", "==", user.uid),
-          orderBy("takenAt", "desc")
-        );
-        const resultSnap = await getDocs(qResults);
-        let resMap = {};
-        let historyMap = {};
-        resultSnap.forEach((doc) => {
-          const data = doc.data();
-          if (!historyMap[data.courseId]) historyMap[data.courseId] = [];
-          historyMap[data.courseId].push({
-            score: data.score,
-            date: data.takenAt?.toDate?.() || new Date(),
-          });
-          if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
-          resMap[data.courseId].total += data.score;
-          resMap[data.courseId].count += 1;
-        });
-        Object.keys(resMap).forEach((courseId) => {
-          resMap[courseId] = Math.round(resMap[courseId].total / resMap[courseId].count);
-        });
-        setResults(resMap);
-        setHistory(historyMap);
+    const fetchResults = async () => {
+      const qResults = query(
+        collection(db, "results"),
+        where("userId", "==", user.uid),
+        orderBy("takenAt", "desc")
+      );
+      const snap = await getDocs(qResults);
 
-        // Facilitators
-        const facQ = query(collection(db, "users"), where("role", "==", "Facilitator"));
-        const facSnap = await getDocs(facQ);
-        const facList = facSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setFacilitators(facList);
-        facilitatorsRef.current = facList;
-      } catch (err) {
-        console.error(err);
-      }
+      const resMap = {};
+      const histMap = {};
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (!histMap[data.courseId]) histMap[data.courseId] = [];
+        histMap[data.courseId].push({ score: data.score, date: data.takenAt?.toDate?.() || new Date() });
+
+        if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
+        resMap[data.courseId].total += data.score;
+        resMap[data.courseId].count += 1;
+      });
+
+      Object.keys(resMap).forEach(id => {
+        resMap[id] = Math.round(resMap[id].total / resMap[id].count);
+      });
+
+      setResults(resMap);
+      setHistory(histMap);
     };
 
-    fetchResultsAndFacilitators();
+    fetchResults();
   }, [user]);
 
-  // --- Chat messages listener ---
-  useEffect(() => {
-    if (!user || !selectedFacilitator) return;
-
-    const convRef = collection(db, "conversations");
-    const convQ = query(convRef, where("participants", "array-contains", user.uid));
-
-    const fetchOrCreateConversation = async () => {
-      const snap = await getDocs(convQ);
-      let convDoc = snap.docs.find(d => d.data().participants.includes(selectedFacilitator.id));
-
-      // Create conversation if it doesn't exist
-      if (!convDoc) {
-        const newDoc = await addDoc(convRef, {
-          participants: [user.uid, selectedFacilitator.id],
-          createdAt: serverTimestamp(),
-        });
-        convDoc = await getDoc(newDoc);
-      }
-
-      const msgRef = collection(db, "conversations", convDoc.id, "messages");
-      const msgQ = query(msgRef, orderBy("timestamp", "asc"));
-      return onSnapshot(msgQ, (snap) => {
-        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-    };
-
-    const unsubMsg = fetchOrCreateConversation();
-    return () => {
-      if (unsubMsg) unsubMsg();
-    };
-  }, [user, selectedFacilitator]);
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedFacilitator || !user) return;
-
-    const convRef = collection(db, "conversations");
-    const convQ = query(convRef, where("participants", "array-contains", user.uid));
-    const snap = await getDocs(convQ);
-    let convDoc = snap.docs.find(d => d.data().participants.includes(selectedFacilitator.id));
-
-    if (!convDoc) {
-      const newConv = await addDoc(convRef, {
-        participants: [user.uid, selectedFacilitator.id],
-        createdAt: serverTimestamp(),
-      });
-      convDoc = await getDoc(newConv);
-    }
-
-    await addDoc(collection(db, "conversations", convDoc.id, "messages"), {
-      senderId: user.uid,
-      senderName: formData.fullname || user.email,
-      senderRole: "Learner",
-      text: newMessage,
-      timestamp: serverTimestamp(),
-    });
-
-    setNewMessage("");
-  };
-
-   // --- Avatar change ---
+  // --- Avatar change ---
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -207,185 +237,164 @@ export default function LearnerDashboard() {
     reader.readAsDataURL(file);
   };
 
-  // --- Logout with confirmation ---
+  // --- Logout ---
   const confirmLogout = () => setShowLogoutModal(true);
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.clear();
-      navigate("/login");
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
+    await signOut(auth);
+    localStorage.clear();
+    navigate("/login");
   };
+
   const menuItems = [
-    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
-    { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Messages", icon: <HiChatAlt2 />, path: "/learner/messages" },
-    { name: "Settings", icon: <HiOutlineUser />, path: "/learner-settings" },
-    { name: "Logout", icon: <HiOutlineLogout />, action: confirmLogout },
+    { name: "Dashboard", icon: <HiHome />, action: () => {} },
+    { name: "My Courses", icon: <HiBookOpen />, action: () => navigate("/courses") },
+    { name: "Messages", icon: <HiChatAlt2 />, action: () => navigate("/learner/messages") },
+    { name: "Settings", icon: <HiUser />, action: () => navigate("/learner-settings") },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-blue-100 to-pink-100 shadow-lg p-5 transform transition-transform duration-300 z-50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-8">My LMS</h2>
-        <nav className="space-y-3">
-          {menuItems.map((item, idx) => (
-            <button key={idx} onClick={() => item.action ? item.action() : navigate(item.path)} className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition">
-              <span className="text-lg">{item.icon}</span>
-              {item.name}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <aside
+        className={`fixed md:static top-0 left-0 h-full w-64 bg-white shadow-lg flex flex-col justify-between transform transition-transform duration-300 z-50 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
+        <div>
+          <h2 className="text-2xl font-bold text-center py-6 border-b text-gray-800">
+            LMS Pro <br />
+            <span className="text-sm text-gray-500">Learner Portal</span>
+          </h2>
+          <nav className="mt-6 flex flex-col gap-3 px-3">
+            {menuItems.map((item, idx) => (
+              <SidebarItem key={idx} icon={item.icon} name={item.name} onClick={item.action} />
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-4 border-t">
+          <button
+            onClick={confirmLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
+          >
+            <HiLogout /> Logout
+          </button>
+        </div>
+      </aside>
 
       {/* Mobile Menu */}
-      <button className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow" onClick={() => setSidebarOpen(!sidebarOpen)}>
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
         {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
       </button>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 md:ml-64">
+      <div className="flex-1 p-6 md:ml-64 overflow-y-auto">
+        {/* Header */}
         <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Welcome back, {formData.fullname} 👋</h1>
-            <p className="text-gray-600 mt-1">Here’s your learning progress at a glance</p>
-          </div>
+          <h1 className="text-4xl font-bold text-gray-800">
+            Welcome back, {formData.fullname} 👋
+          </h1>
 
           <div className="flex items-center space-x-4 relative">
             {/* Notifications */}
             <div className="relative">
-              <button onClick={() => { setNotifOpen(!notifOpen); setMsgOpen(false); }} className="relative p-2 rounded-full hover:bg-gray-200 transition">
-                <HiBell size={24} className="text-gray-700" />
-                {notifications.some(n => !n.seen) && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{notifications.filter(n => !n.seen).length}</span>}
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative p-2 rounded-full hover:bg-gray-200 transition"
+              >
+                <HiBell size={28} className="text-red-500" />
+                {notifications.some((n) => !n.seen) && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {notifications.filter((n) => !n.seen).length}
+                  </span>
+                )}
               </button>
-            </div>
-
-            {/* Messages */}
-            <div className="relative">
-              <button onClick={() => { setMsgOpen(!msgOpen); setNotifOpen(false); }} className="relative p-2 rounded-full hover:bg-gray-200 transition">
-                <HiChatAlt2 size={24} className="text-gray-700" />
-                {messages.some(m => !m.seen) && <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs px-1.5 py-0.5 rounded-full">{messages.filter(m => !m.seen).length}</span>}
-              </button>
-
-              {msgOpen && (
-                <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg p-3 z-50 flex">
-                  {/* Facilitators List */}
-                  <div className="w-1/3 border-r border-gray-200 pr-2 overflow-y-auto max-h-80">
-                    <h4 className="font-semibold mb-2">Facilitators</h4>
-                    <ul>
-                      {facilitators.length > 0 ? facilitators.map(f => (
-                        <li key={f.id} onClick={() => setSelectedFacilitator(f)} className={`cursor-pointer p-1 rounded ${selectedFacilitator?.id === f.id ? "bg-blue-100" : ""}`}>{f.fullname || f.name || f.email}</li>
-                      )) : <p className="text-sm text-gray-500">No facilitators available</p>}
-                    </ul>
-                  </div>
-
-                  {/* Chat */}
-                  <div className="w-2/3 pl-2 flex flex-col">
-                    {selectedFacilitator ? (
-                      <>
-                        <div className="flex-1 overflow-y-auto max-h-72">
-                          {messages.map(msg => (
-                            <p key={msg.id} className={msg.senderId === user.uid ? "text-right text-blue-600" : "text-left text-gray-800"}>
-                              <strong>{msg.senderName || msg.senderRole || msg.senderId}:</strong> {msg.text}
-                            </p>
-                          ))}
-                        </div>
-                        <div className="flex mt-2">
-                          <input type="text" className="flex-1 border rounded p-1" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                          <button className="ml-1 px-2 bg-blue-500 text-white rounded" onClick={sendMessage}>Send</button>
-                        </div>
-                      </>
-                    ) : <p>Select a facilitator to start chatting</p>}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Avatar */}
-            <div className="relative cursor-pointer" onClick={() => navigate("/learner-settings")}>
-              {avatar ? (
-                <img src={avatar} alt="Avatar" className="w-12 h-12 rounded-full object-cover border-2 border-white shadow" />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl border-2 border-white shadow">
-                  {formData.fullname?.charAt(0).toUpperCase() || "L"}
+            <div className="relative">
+              <div onClick={() => setAvatarMenuOpen(!avatarMenuOpen)} className="cursor-pointer">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl border-2 border-white shadow">
+                    {formData.fullname?.charAt(0).toUpperCase() || "L"}
+                  </div>
+                )}
+              </div>
+
+              {avatarMenuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
+                  <button
+                    onClick={() => {
+                      setAvatarMenuOpen(false);
+                      navigate("/learner-settings");
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <HiUser /> Settings
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-500"
+                  >
+                    <HiLogout /> Logout
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* Courses Grid */}
+        {/* Courses */}
         <section className="grid md:grid-cols-2 gap-6">
-          {enrolledCourses.length === 0 && <p>You have not enrolled in any courses yet.</p>}
-          {enrolledCourses.map(course => {
-            const avgScore = results[course.id] ?? 0;
-            const courseHistory = history[course.id] ?? [];
-            const isExpanded = expanded[course.id];
-            const contentProgress = course.progress || 0;
-            const totalWidth = Math.min(contentProgress + avgScore, 100);
-            const contentWidth = Math.min(contentProgress, totalWidth);
-            const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
-
-            return (
-              <div key={course.id} className="bg-white p-5 rounded-lg shadow hover:shadow-md transition">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-gray-800 font-medium">{course.title}</h3>
-                  <button onClick={() => setExpanded(prev => ({ ...prev, [course.id]: !prev[course.id] }))} className="text-blue-500 text-sm">
-                    {isExpanded ? "Hide History" : "Show History"}
-                  </button>
-                </div>
-
-                <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
-                  <div className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out" style={{ width: `${contentWidth}%` }} />
-                  <div className="absolute left-0 top-0 h-4 bg-pink-400 transition-all duration-700 ease-out opacity-70" style={{ width: `${quizWidth}%` }} />
-                </div>
-                <p className="text-sm text-gray-500 mb-3">Content: {contentProgress}%, Quiz Avg: {avgScore}%</p>
-                <button onClick={() => navigate(`/quiz/${course.id}`)} className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 rounded-lg hover:opacity-90 transition mb-2">Take Quiz</button>
-
-                {isExpanded && courseHistory.length > 0 && (
-                  <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-                    <h4 className="font-semibold mb-2">Past Quiz Attempts</h4>
-                    <ul className="space-y-2 text-gray-700 text-sm">
-                      {courseHistory.map((attempt, idx) => (
-                        <li key={idx} className="flex justify-between border-b border-gray-200 pb-1">
-                          <span>Attempt {courseHistory.length - idx}</span>
-                          <span>{attempt.score}% - {attempt.date.toLocaleDateString()} {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {enrolledCourses.length === 0 && (
+            <p className="text-gray-600">You have not enrolled in any courses yet.</p>
+          )}
+          {enrolledCourses.map((course) => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              avgScore={results[course.id] ?? 0}
+              history={history[course.id] ?? []}
+              expanded={expanded}
+              onToggleExpand={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
+              onNavigate={navigate}
+            />
+          ))}
         </section>
-        {/* --- Logout Confirmation Modal --- */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h3 className="text-lg font-semibold mb-4">Confirm Logout</h3>
-            <p className="mb-6 text-gray-600">Are you sure you want to logout?</p>
-            <div className="flex justify-end space-x-3">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-                onClick={() => setShowLogoutModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
+
+        {/* Logout Modal */}
+        {showLogoutModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+              <h3 className="text-lg font-semibold mb-4">Confirm Logout</h3>
+              <p className="mb-6 text-gray-600">Are you sure you want to logout?</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                  onClick={() => setShowLogoutModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
-        </div> 
-      )}
+        )}
+      </div>
     </div>
-   </div>
-  )
+  );
 }

@@ -65,7 +65,7 @@ function AppContent() {
         <Route path="/help" element={<Help />} />
         <Route path="/notifications" element={<NotificationsPage />} />
 
-        <Route path="/courses" element={<CourseManagementPage />} />
+        <Route path="/manage-courses" element={<CourseManagementPage />} />
         <Route path="/grading" element={<GradingPage />} />
         <Route path="/materials" element={<LearningMaterialsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
