@@ -158,7 +158,7 @@ export default function FacilitatorDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center mb-6">
           <button
             className="md:hidden p-2 bg-blue-500 text-white rounded-lg"
             onClick={() => setIsSidebarOpen(true)}
@@ -166,19 +166,18 @@ export default function FacilitatorDashboard() {
           >
             <FaBars />
           </button>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="flex-1 mx-4 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          />
-          <button
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-            style={{ backgroundColor: profileColor }}
-            onClick={() => setProfilePopup(true)}
-          >
-            {firstInitial}
-            {lastInitial}
-          </button>
+
+          {/* Profile Button aligned top-right */}
+          <div className="ml-auto">
+            <button
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+              style={{ backgroundColor: profileColor }}
+              onClick={() => setProfilePopup(true)}
+            >
+              {firstInitial}
+              {lastInitial}
+            </button>
+          </div>
         </div>
 
         {profilePopup && (
