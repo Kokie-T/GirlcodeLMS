@@ -1,41 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  getDocs,
-  updateDoc,
-} from "firebase/firestore";
+import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import {
-  HiMenu,
-  HiX,
-  HiBell,
-  HiChatAlt2,
-  HiUser,
-  HiHome,
-  HiBookOpen,
-  HiLogout,
-} from "react-icons/hi";
+import { FaTachometerAlt, FaBook, FaEnvelope, FaSignOutAlt, FaBars, FaTimes, FaCheckSquare, FaScrewdriver } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
-// ---------- Sidebar Item ----------
-const SidebarItem = ({ icon, name, onClick }) => (
-  <button
-    onClick={onClick}
-    className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:scale-105 transition transform duration-200"
-  >
-    <span className="text-lg">{icon}</span>
-    {name}
-  </button>
+// ---------- Reusable Cards ----------
+const StatsCard = ({ title, value, icon, color }) => (
+  <div className={`flex items-center p-4 rounded-xl shadow hover:shadow-xl transition-transform transform hover:-translate-y-1 bg-white dark:bg-gray-800`}>
+    <div className={`p-3 rounded-full ${color} text-white mr-4 text-xl`}>{icon}</div>
+    <div>
+      <h4 className="text-gray-500 dark:text-gray-300 text-sm">{title}</h4>
+      <p className="text-gray-800 dark:text-white font-semibold text-lg">{value}</p>
+    </div>
+  </div>
 );
 
-// ---------- Course Card ----------
 const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNavigate }) => {
   const isExpanded = expanded[course.id];
   const contentProgress = course.progress || 0;
@@ -44,67 +24,34 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
   const quizWidth = Math.min(avgScore, totalWidth - contentWidth);
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out flex flex-col gap-3">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow hover:shadow-xl flex flex-col gap-3 transition-transform transform hover:-translate-y-1">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-gray-800 font-medium">{course.title}</h3>
-        <button
-          onClick={() => onToggleExpand(course.id)}
-          className="text-blue-500 text-sm"
-        >
+        <h3 className="text-gray-800 dark:text-white font-medium">{course.title}</h3>
+        <button onClick={() => onToggleExpand(course.id)} className="text-blue-500 text-sm">
           {isExpanded ? "Hide History" : "Show History"}
         </button>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden relative mb-2">
-        <div
-          className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out"
-          style={{ width: `${contentWidth}%` }}
-        />
-        <div
-          className="absolute left-0 top-0 h-4 bg-pink-400 transition-all duration-700 ease-out opacity-70"
-          style={{ width: `${quizWidth}%` }}
-        />
+      <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden relative mb-2">
+        <div className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out" style={{ width: `${contentWidth}%` }} />
+        <div className="absolute left-0 top-0 h-4 bg-pink-400 opacity-70 transition-all duration-700 ease-out" style={{ width: `${quizWidth}%` }} />
       </div>
-      <p className="text-sm text-gray-500 mb-3">
-        Content: {contentProgress}%, Quiz Avg: {avgScore}%
-      </p>
 
-      {/* Actions */}
+      <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">Content: {contentProgress}%, Quiz Avg: {avgScore}%</p>
+
       <div className="flex flex-wrap gap-2 mb-2">
-        <button
-          onClick={() => onNavigate(`/quiz/${course.id}`)}
-          className="px-3 py-1 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-lg text-sm hover:opacity-90 hover:scale-105 transition transform duration-200"
-        >
-          Take Quiz
-        </button>
-        <button
-          onClick={() => onNavigate(`/course-materials/${course.id}`)}
-          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 hover:scale-105 transition transform duration-200"
-        >
-          Materials
-        </button>
-        <button
-          onClick={() => onNavigate(`/messages/${course.id}`)}
-          className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 hover:scale-105 transition transform duration-200"
-        >
-          Messages
-        </button>
+        <button onClick={() => onNavigate(`/quiz/${course.id}`)} className="px-3 py-1 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-lg text-sm hover:opacity-90 hover:scale-105 transition transform duration-200">Take Quiz</button>
+        <button onClick={() => onNavigate(`/course-materials/${course.id}`)} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition transform duration-200">Materials</button>
       </div>
 
-      {/* History */}
       {isExpanded && history.length > 0 && (
-        <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-          <h4 className="font-semibold mb-2">Past Quiz Attempts</h4>
-          <ul className="space-y-2 text-gray-700 text-sm">
+        <div className="mt-3 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
+          <h4 className="font-semibold mb-2 text-gray-700 dark:text-gray-300">Past Quiz Attempts</h4>
+          <ul className="space-y-2 text-gray-700 dark:text-gray-300 text-sm">
             {history.map((attempt, idx) => (
-              <li key={idx} className="flex justify-between border-b border-gray-200 pb-1">
+              <li key={idx} className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1">
                 <span>Attempt {history.length - idx}</span>
-                <span>
-                  {attempt.score}% -{" "}
-                  {attempt.date.toLocaleDateString()}{" "}
-                  {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
+                <span>{attempt.score}% - {attempt.date.toLocaleDateString()} {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
               </li>
             ))}
           </ul>
@@ -114,287 +61,222 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
   );
 };
 
-// ---------- Learner Dashboard ----------
+
+// ---------- Overlay Component ----------
+const Overlay = ({ children, onClose }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative" onClick={e => e.stopPropagation()}>
+      {children}
+    </div>
+  </div>
+);
+
+export const ProfilePopup = ({ user, darkMode, setDarkMode, profileColor, setProfileColor, close }) => (
+  <Overlay onClose={close}>
+    <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}><FaTimes /></button>
+    <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
+    <input type="text" value={user.fullname} readOnly className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+    <label className="flex items-center gap-2 mb-4 dark:text-white">
+      <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} /> Dark Mode
+    </label>
+    <label className="flex items-center gap-2 mb-4 dark:text-white">
+      Avatar Color: <input type="color" value={profileColor} onChange={e => setProfileColor(e.target.value)} />
+    </label>
+    <button onClick={close} className="bg-blue-500 text-white px-4 py-2 rounded hover:opacity-90">Save</button>
+  </Overlay>
+);
+
+export const LogoutPopup = ({ onConfirm, onCancel }) => (
+  <Overlay onClose={onCancel}>
+    <h2 className="text-lg font-semibold mb-4 dark:text-white">Confirm Logout</h2>
+    <p className="mb-6 dark:text-gray-300">Are you sure you want to log out?</p>
+    <div className="flex justify-end gap-3">
+      <button onClick={onCancel} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 dark:text-white">Cancel</button>
+      <button onClick={onConfirm} className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600">Logout</button>
+    </div>
+  </Overlay>
+);
+
+// ---------- LearnerDashboard ----------
 export default function LearnerDashboard() {
   const navigate = useNavigate();
   const auth = getAuth();
   const user = auth.currentUser;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [avatar, setAvatar] = useState(null);
+  const [activePage, setActivePage] = useState("Dashboard");
   const [formData, setFormData] = useState({ fullname: "", email: "" });
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [results, setResults] = useState({});
   const [history, setHistory] = useState({});
+  const [messages, setMessages] = useState([]);
   const [expanded, setExpanded] = useState({});
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [profilePopup, setProfilePopup] = useState(false);
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [darkMode, setDarkMode] = useState(JSON.parse(localStorage.getItem("darkMode")) || false);
+  const [profileColor, setProfileColor] = useState(localStorage.getItem("profileColor") || "#4F46E5");
 
-  // --- Fetch user profile ---
+  const sidebarItems = [
+    { icon: <FaTachometerAlt />, label: "Dashboard", path: "/learner-dashboard" },
+    { icon: <FaBook />, label: "My Courses", path: "/courses" },
+    { icon: <FaEnvelope />, label: "Messages", path: "/learner/messages" },
+    { icon: <FaScrewdriver />, label: "Settings", path: "/learner-settings"},
+    ];
+  // --- Fetch User ---
   useEffect(() => {
     if (!user) return;
-
     const fetchUser = async () => {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        const data = snap.data();
         setFormData({ fullname: data.fullname || "", email: data.email || user.email });
-        setAvatar(data.avatar || null);
       }
     };
-
     fetchUser();
   }, [user]);
 
-  // --- Fetch enrolled courses from enrollments ---
+  // --- Fetch Courses ---
   useEffect(() => {
     if (!user) return;
+    const q = query(collection(db, "enrollments"), where("studentId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, async snapshot => {
+      const courseIds = snapshot.docs.map(d => d.data().courseId);
+      if (!courseIds.length) return setEnrolledCourses([]);
 
-    const fetchCourses = async () => {
-      try {
-        const enrollSnap = await getDocs(
-          query(collection(db, "enrollments"), where("studentId", "==", user.uid))
-        );
-
-        const courseIds = enrollSnap.docs.map(doc => doc.data().courseId);
-        if (courseIds.length === 0) return setEnrolledCourses([]);
-
-        const courses = [];
-        for (let i = 0; i < courseIds.length; i += 10) {
-          const batchIds = courseIds.slice(i, i + 10);
-          const batchSnap = await getDocs(
-            query(collection(db, "courses"), where("__name__", "in", batchIds))
-          );
-
-          batchSnap.docs.forEach(doc => {
-            const enrollmentData = enrollSnap.docs.find(e => e.data().courseId === doc.id)?.data();
-            courses.push({
-              id: doc.id,
-              title: doc.data().title || "Untitled Course",
-              progress: enrollmentData?.progress || 0,
-            });
-          });
-        }
-
-        setEnrolledCourses(courses);
-      } catch (err) {
-        console.error("Failed to fetch enrolled courses:", err);
+      const courses = [];
+      for (let i = 0; i < courseIds.length; i += 10) {
+        const batch = courseIds.slice(i, i + 10);
+        const batchDocs = await Promise.all(batch.map(id => getDoc(doc(db, "courses", id))));
+        batchDocs.forEach(docSnap => {
+          const enrollmentData = snapshot.docs.find(e => e.data().courseId === docSnap.id)?.data();
+          courses.push({ id: docSnap.id, title: docSnap.data()?.title || "Untitled", progress: enrollmentData?.progress || 0 });
+        });
       }
-    };
-
-    fetchCourses();
+      setEnrolledCourses(courses);
+    });
+    return () => unsubscribe();
   }, [user]);
 
-  // --- Fetch quiz results ---
+  // --- Fetch Results ---
   useEffect(() => {
     if (!user) return;
-
-    const fetchResults = async () => {
-      const qResults = query(
-        collection(db, "results"),
-        where("userId", "==", user.uid),
-        orderBy("takenAt", "desc")
-      );
-      const snap = await getDocs(qResults);
-
+    const q = query(collection(db, "results"), where("userId", "==", user.uid), orderBy("takenAt", "desc"));
+    const unsubscribe = onSnapshot(q, snapshot => {
       const resMap = {};
       const histMap = {};
-      snap.forEach(doc => {
+      snapshot.docs.forEach(doc => {
         const data = doc.data();
+        const takenAt = data.takenAt?.toDate?.() || new Date();
         if (!histMap[data.courseId]) histMap[data.courseId] = [];
-        histMap[data.courseId].push({ score: data.score, date: data.takenAt?.toDate?.() || new Date() });
-
+        histMap[data.courseId].push({ score: data.score, date: takenAt });
         if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
         resMap[data.courseId].total += data.score;
         resMap[data.courseId].count += 1;
       });
-
-      Object.keys(resMap).forEach(id => {
-        resMap[id] = Math.round(resMap[id].total / resMap[id].count);
-      });
-
+      Object.keys(resMap).forEach(id => resMap[id] = Math.round(resMap[id].total / resMap[id].count));
       setResults(resMap);
       setHistory(histMap);
-    };
-
-    fetchResults();
+    });
+    return () => unsubscribe();
   }, [user]);
 
-  // --- Avatar change ---
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !user) return;
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64String = reader.result;
-      setAvatar(base64String);
-      await updateDoc(doc(db, "users", user.uid), { avatar: base64String });
-    };
-    reader.readAsDataURL(file);
-  };
+  // --- Fetch Messages ---
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, "messages"), where("receiverId", "==", user.uid), orderBy("sentAt", "desc"));
+    const unsubscribe = onSnapshot(q, snapshot => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(msgs);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
-  // --- Logout ---
-  const confirmLogout = () => setShowLogoutModal(true);
+  // --- Dark Mode & Profile Color ---
+  useEffect(() => {
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
+  useEffect(() => localStorage.setItem("profileColor", profileColor), [profileColor]);
+
   const handleLogout = async () => {
     await signOut(auth);
-    localStorage.clear();
     navigate("/login");
   };
 
-  const menuItems = [
-    { name: "Dashboard", icon: <HiHome />, action: () => {} },
-    { name: "My Courses", icon: <HiBookOpen />, action: () => navigate("/courses") },
-    { name: "Messages", icon: <HiChatAlt2 />, action: () => navigate("/learner/messages") },
-    { name: "Settings", icon: <HiUser />, action: () => navigate("/learner-settings") },
-  ];
-
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
       {/* Sidebar */}
-      <aside
-        className={`fixed md:static top-0 left-0 h-full w-64 bg-white shadow-lg flex flex-col justify-between transform transition-transform duration-300 z-50 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
+      <aside className={`fixed md:static top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg flex flex-col justify-between transition-transform duration-300 z-50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         <div>
-          <h2 className="text-2xl font-bold text-center py-6 border-b text-gray-800">
+          <button className="md:hidden p-4 self-end text-xl" onClick={() => setSidebarOpen(false)}>
+            <FaTimes className={darkMode ? "text-white" : ""} />
+          </button>
+          <h2 className="text-xl font-bold text-center py-6 border-b dark:border-gray-700 dark:text-white">
             LMS Pro <br />
-            <span className="text-sm text-gray-500">Learner Portal</span>
+            <span className="text-sm text-gray-500 dark:text-gray-300">Learner Portal</span>
           </h2>
-          <nav className="mt-6 flex flex-col gap-3 px-3">
-            {menuItems.map((item, idx) => (
-              <SidebarItem key={idx} icon={item.icon} name={item.name} onClick={item.action} />
+          <nav className="mt-6 space-y-2">
+            {sidebarItems.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => { setActivePage(item.label); navigate(item.path); setSidebarOpen(false); }}
+                className={`flex items-center gap-3 w-full px-4 py-2 text-sm rounded-lg ${
+                  activePage === item.label
+                    ? "bg-blue-100 text-blue-600 font-semibold"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                {item.icon} {item.label}
+              </button>
             ))}
           </nav>
         </div>
-
-        <div className="p-4 border-t">
-          <button
-            onClick={confirmLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
-          >
-            <HiLogout /> Logout
+        <div className="p-4 border-t dark:border-gray-700">
+          <button onClick={() => setShowLogoutPopup(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg">
+            <FaSignOutAlt /> Logout
           </button>
         </div>
       </aside>
 
-      {/* Mobile Menu */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
-        {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
-      </button>
+      {/* Main */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        {/* Mobile top bar */}
+        <div className="flex items-center justify-between mb-6">
+          <button className="md:hidden p-2 bg-blue-500 text-white rounded-lg" onClick={() => setSidebarOpen(true)}>
+            <FaBars />
+          </button>
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 md:ml-64 overflow-y-auto">
-        {/* Header */}
-        <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-gray-800">
-            Welcome back, {formData.fullname} 👋
-          </h1>
+        {profilePopup && <ProfilePopup user={formData} darkMode={darkMode} setDarkMode={setDarkMode} profileColor={profileColor} setProfileColor={setProfileColor} close={() => setProfilePopup(false)} />}
+        {showLogoutPopup && <LogoutPopup onConfirm={handleLogout} onCancel={() => setShowLogoutPopup(false)} />}
 
-          <div className="flex items-center space-x-4 relative">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setNotifOpen(!notifOpen)}
-                className="relative p-2 rounded-full hover:bg-gray-200 transition"
-              >
-                <HiBell size={28} className="text-red-500" />
-                {notifications.some((n) => !n.seen) && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    {notifications.filter((n) => !n.seen).length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Avatar */}
-            <div className="relative">
-              <div onClick={() => setAvatarMenuOpen(!avatarMenuOpen)} className="cursor-pointer">
-                {avatar ? (
-                  <img
-                    src={avatar}
-                    alt="Avatar"
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-xl border-2 border-white shadow">
-                    {formData.fullname?.charAt(0).toUpperCase() || "L"}
-                  </div>
-                )}
-              </div>
-
-              {avatarMenuOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg z-50">
-                  <button
-                    onClick={() => {
-                      setAvatarMenuOpen(false);
-                      navigate("/learner-settings");
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <HiUser /> Settings
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-red-500"
-                  >
-                    <HiLogout /> Logout
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl shadow mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">Welcome back, {formData.fullname?.split(" ")[0] || "User"} 👋</h1>
+            <p className="text-gray-500 dark:text-gray-300 mt-1">Here's your learning progress at a glance</p>
           </div>
-        </header>
+          <button style={{ backgroundColor: profileColor }} className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg" onClick={() => setProfilePopup(true)}>
+            {formData.fullname?.charAt(0).toUpperCase() || "U"}
+          </button>
+        </div>
 
-        {/* Courses */}
-        <section className="grid md:grid-cols-2 gap-6">
-          {enrolledCourses.length === 0 && (
-            <p className="text-gray-600">You have not enrolled in any courses yet.</p>
-          )}
-          {enrolledCourses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              avgScore={results[course.id] ?? 0}
-              history={history[course.id] ?? []}
-              expanded={expanded}
-              onToggleExpand={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
-              onNavigate={navigate}
-            />
-          ))}
+        {/* Stats */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <StatsCard title="Courses Enrolled" value={enrolledCourses.length} icon={<FaBook />} color="bg-blue-500" />
+          <StatsCard title="Average Quiz Score" value={Object.keys(results).length ? Math.round(Object.values(results).reduce((a,b) => a+b,0)/Object.keys(results).length) : 0} icon={<FaCheckSquare />} color="bg-pink-500" />
+          <StatsCard title="Quizzes Taken" value={Object.values(history).reduce((sum, arr) => sum + arr.length, 0)} icon={<FaTachometerAlt />} color="bg-green-500" />
         </section>
 
-        {/* Logout Modal */}
-        {showLogoutModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-              <h3 className="text-lg font-semibold mb-4">Confirm Logout</h3>
-              <p className="mb-6 text-gray-600">Are you sure you want to logout?</p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-                  onClick={() => setShowLogoutModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Courses */}
+        <section className="grid md:grid-cols-2 gap-6 mb-6">
+          {enrolledCourses.length === 0 && <p className="text-gray-600 dark:text-gray-300">You have not enrolled in any courses yet.</p>}
+          {enrolledCourses.map(course => (
+            <CourseCard key={course.id} course={course} avgScore={results[course.id] ?? 0} history={history[course.id] ?? []} expanded={expanded} onToggleExpand={id => setExpanded(prev => ({...prev, [id]: !prev[id]}))} onNavigate={navigate} />
+          ))}
+        </section>
+      </main>
     </div>
   );
 }
