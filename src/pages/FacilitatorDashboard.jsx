@@ -79,7 +79,7 @@ export default function FacilitatorDashboard() {
     { icon: <FaTachometerAlt />, label: "Dashboard", page: "Dashboard" },
     { icon: <FaUserPlus />, label: "Enroll Student", page: "Enroll" },
     { icon: <FaEnvelope />, label: "Messages", page: "Messages" },
-    { icon: <FaBook />, label: "Course Management", page: "Courses" },
+    { icon: <FaBook />, label: "Course Management", page: "Manage-Courses" },
     { icon: <FaCheckSquare />, label: "Grading", page: "Grading" },
     { icon: <FaFileAlt />, label: "Learning Materials", page: "Materials" },
     { icon: <FaCalendarAlt />, label: "Calendar", page: "Calendar" },
@@ -94,7 +94,7 @@ export default function FacilitatorDashboard() {
         return <EnrollStudent />;
       case "Messages":
         return <Messages />;
-      case "Courses":
+      case "Manage-Courses":
         return <CourseManagementPage />;
       case "Grading":
         return <GradingPage darkMode={darkMode} />;
