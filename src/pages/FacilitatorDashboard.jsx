@@ -10,6 +10,7 @@ import {
   FaBars,
   FaTimes,
   FaCalendarAlt,
+  FaQuestionCircle,
   FaUserPlus,
 } from "react-icons/fa";
 import { auth } from "../firebase";
@@ -18,8 +19,8 @@ import EnrollStudent from "./EnrollStudent";
 import Messages from "../components/MessagesPage";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
-import LearningMaterialsPage from "../components/LearningMaterialsPage";
 import CalendarPage from "../components/CalendarPage";
+import FacilitatorHelp from "../components/FacilitatorHelp";
 
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -79,10 +80,10 @@ export default function FacilitatorDashboard() {
     { icon: <FaTachometerAlt />, label: "Dashboard", page: "Dashboard" },
     { icon: <FaUserPlus />, label: "Enroll Student", page: "Enroll" },
     { icon: <FaEnvelope />, label: "Messages", page: "Messages" },
-    { icon: <FaBook />, label: "Course Management", page: "Courses" },
+    { icon: <FaBook />, label: "Course Management", page: "Manage-Courses" },
     { icon: <FaCheckSquare />, label: "Grading", page: "Grading" },
-    { icon: <FaFileAlt />, label: "Learning Materials", page: "Materials" },
     { icon: <FaCalendarAlt />, label: "Calendar", page: "Calendar" },
+    { icon: <FaQuestionCircle />, label: "Help", page: "FacilitatorHelp" },
   ];
 
   // Render current page
@@ -94,14 +95,14 @@ export default function FacilitatorDashboard() {
         return <EnrollStudent />;
       case "Messages":
         return <Messages />;
-      case "Courses":
+      case "Manage-Courses":
         return <CourseManagementPage />;
       case "Grading":
         return <GradingPage darkMode={darkMode} />;
-      case "Materials":
-        return <LearningMaterialsPage />;
       case "Calendar":
         return <CalendarPage />;
+      case "FacilitatorHelp":
+        return <FacilitatorHelp />;
       default:
         return <Dashboard />;
     }

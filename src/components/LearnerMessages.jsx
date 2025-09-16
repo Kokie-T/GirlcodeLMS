@@ -34,7 +34,7 @@ export default function LearnerMessages() {
     return () => unsubscribe();
   }, [auth]);
 
-  // Fetch initial facilitators list
+  // Fetch facilitators
   useEffect(() => {
     const fetchFacilitators = async () => {
       const facQ = query(collection(db, "users"), where("role", "==", "Facilitator"));
@@ -46,7 +46,7 @@ export default function LearnerMessages() {
     fetchFacilitators();
   }, []);
 
-  // Listen for all conversations involving learner
+  // Listen for conversations
   useEffect(() => {
     if (!user) return;
 
@@ -56,7 +56,6 @@ export default function LearnerMessages() {
     const unsub = onSnapshot(chatQ, async (snap) => {
       const allConversations = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // If a facilitator is selected, show only relevant messages
       if (selectedFacilitator) {
         const conv = allConversations.find(c =>
           c.participants.includes(selectedFacilitator.id)
@@ -72,7 +71,7 @@ export default function LearnerMessages() {
         }
       }
 
-      // Dynamically update facilitators list
+      // Update facilitators dynamically
       const allFacIds = allConversations
         .flatMap(c => c.participants)
         .filter(id => id !== user.uid);
@@ -105,7 +104,6 @@ export default function LearnerMessages() {
 
     let conversation = snap.docs.find(d => d.data().participants.includes(selectedFacilitator.id));
 
-    // If conversation does not exist, create it
     if (!conversation) {
       const newConvRef = await addDoc(convRef, {
         participants: [user.uid, selectedFacilitator.id],
@@ -128,43 +126,51 @@ export default function LearnerMessages() {
   if (!user) return <p>Loading messages...</p>;
 
   return (
-    <div className="flex h-screen">
-      {/* Facilitators list */}
-      <div className="w-1/3 border-r p-4 overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">Facilitators</h2>
-        <ul>
+    <div className="flex flex-col h-screen">
+      {/* Facilitator Dropdown */}
+      <div className="p-4 bg-gradient-to-r from-blue-300 to-pink-300 text-white shadow">
+        <h2 className="text-xl font-semibold mb-2">Learner Messages</h2>
+        <select
+          value={selectedFacilitator?.id || ""}
+          onChange={(e) => {
+            const fac = facilitators.find(f => f.id === e.target.value);
+            setSelectedFacilitator(fac || null);
+          }}
+          className="w-full p-2 rounded text-gray-800"
+        >
+          <option value="">Select a facilitator...</option>
           {facilitators.map(f => (
-            <li
-              key={f.id}
-              onClick={() => setSelectedFacilitator(f)}
-              className={`p-2 cursor-pointer rounded ${
-                selectedFacilitator?.id === f.id ? "bg-blue-100" : "hover:bg-gray-100"
-              }`}
-            >
+            <option key={f.id} value={f.id}>
               {f.fullname || f.name || f.email || f.id}
-            </li>
+            </option>
           ))}
-        </ul>
+        </select>
       </div>
 
-      {/* Chat panel */}
-      <div className="w-2/3 p-4 flex flex-col">
+      {/* Chat Panel */}
+      <div className="flex-1 flex flex-col p-4 bg-gray-100">
         {selectedFacilitator ? (
           <>
-            <h2 className="text-lg font-semibold mb-2">
-              Chat with {selectedFacilitator.fullname || selectedFacilitator.name || selectedFacilitator.id}
-            </h2>
-            <div className="flex-1 overflow-y-auto border rounded p-3 mb-3">
+            <div className="flex-1 overflow-y-auto border rounded-lg p-4 mb-3 bg-white shadow">
               {messages.length > 0 ? (
                 messages.map(msg => (
-                  <p
+                  <div
                     key={msg.id}
-                    className={`mb-2 ${
-                      msg.senderId === user.uid ? "text-right text-blue-600" : "text-left text-gray-800"
+                    className={`mb-3 flex ${
+                      msg.senderId === user.uid ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <strong>{msg.senderName || msg.senderRole || msg.senderId}:</strong> {msg.text}
-                  </p>
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-xl shadow ${
+                        msg.senderId === user.uid
+                          ? "bg-gradient-to-r from-blue-300 to-pink-300 text-white"
+                          : "bg-gray-200"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{msg.senderName}</p>
+                      <p>{msg.text}</p>
+                    </div>
+                  </div>
                 ))
               ) : (
                 <p className="text-gray-500">No messages yet with this facilitator.</p>
@@ -176,18 +182,20 @@ export default function LearnerMessages() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 border rounded p-2"
+                className="flex-1 border rounded-lg p-2 focus:ring focus:ring-blue-300"
               />
               <button
                 onClick={sendMessage}
-                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded"
+                className="ml-2 bg-gradient-to-r from-blue-300 to-pink-300 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
               >
                 Send
               </button>
             </div>
           </>
         ) : (
-          <p className="text-gray-500">Select a facilitator to start chatting.</p>
+          <div className="flex items-center justify-center flex-1 text-gray-500">
+            Select a facilitator to start chatting.
+          </div>
         )}
       </div>
     </div>
