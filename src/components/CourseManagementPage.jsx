@@ -31,17 +31,33 @@ export default function CourseManagementPage() {
   const [generatedContent, setGeneratedContent] = useState(null);
   const [questionCount, setQuestionCount] = useState(5);
   const [difficultyLevel, setDifficultyLevel] = useState("medium");
+  const [uploadStatus, setUploadStatus] = useState("");
 
   // Fetch courses
   const fetchCourses = async () => {
-    const querySnapshot = await getDocs(collection(db, "courses"));
-    setCourses(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    try {
+      const querySnapshot = await getDocs(collection(db, "courses"));
+      setCourses(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      alert("Error fetching courses");
+    }
   };
 
   // Fetch educational content
   const fetchContent = async () => {
-    const querySnapshot = await getDocs(collection(db, "materials"));
-    setUploadedContent(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    try {
+      const querySnapshot = await getDocs(collection(db, "materials"));
+      const contentData = querySnapshot.docs.map((doc) => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        uploadedAt: doc.data().createdAt ? doc.data().createdAt.toDate().toLocaleString() : 'Unknown date'
+      }));
+      setUploadedContent(contentData);
+    } catch (error) {
+      console.error("Error fetching content:", error);
+      alert("Error fetching content");
+    }
   };
 
   // Fetch assessments
@@ -108,6 +124,7 @@ export default function CourseManagementPage() {
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       setFile(e.target.files[0]);
+      setUploadStatus("");
     }
   };
 
@@ -118,11 +135,13 @@ export default function CourseManagementPage() {
     }
 
     try {
+      setUploadStatus("Uploading...");
       let fileURL = "";
+      
       if (file) {
         const storageRef = ref(storage, `materials/${file.name}-${Date.now()}`);
-        await uploadBytes(storageRef, file);
-        fileURL = await getDownloadURL(storageRef);
+        const snapshot = await uploadBytes(storageRef, file);
+        fileURL = await getDownloadURL(snapshot.ref);
       }
 
       if (editingContent) {
@@ -132,6 +151,7 @@ export default function CourseManagementPage() {
           description,
           fileURL: fileURL || editingContent.fileURL,
           courseId: selectedCourse,
+          updatedAt: serverTimestamp(),
         });
         setEditingContent(null);
       } else {
@@ -141,7 +161,6 @@ export default function CourseManagementPage() {
           description,
           fileURL,
           courseId: selectedCourse,
-          date: new Date().toLocaleDateString(),
           createdAt: serverTimestamp(),
         });
       }
@@ -151,9 +170,12 @@ export default function CourseManagementPage() {
       setDescription("");
       setFile(null);
       setSelectedCourse("");
+      setUploadStatus("Upload successful!");
+      setTimeout(() => setUploadStatus(""), 3000);
       fetchContent();
     } catch (error) {
       console.error("Error uploading content:", error);
+      setUploadStatus("Upload failed!");
       alert("Error uploading content");
     }
   };
@@ -170,58 +192,64 @@ export default function CourseManagementPage() {
     }
   };
 
-  // AI Generate Assessment - Using Hugging Face API
+  // AI Generate Assessment - Using OpenRouter API
   const handleAIGenerate = async () => {
     if (!activeAIType || !aiTopic) return alert("Select type and enter topic");
     
     setIsGenerating(true);
     
     try {
-      // Using Hugging Face Inference API
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/google/flan-t5-large",
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${process.env.REACT_APP_HF_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            inputs: `Generate ${questionCount} ${difficultyLevel} difficulty ${activeAIType} questions about ${aiTopic}. 
-            Format as JSON with questions array containing question, options array, and correctAnswer index.`
-          }),
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Parse the generated text
-      let questions;
-      try {
-        // Try to extract JSON from the response
-        const jsonMatch = data[0].generated_text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          questions = JSON.parse(jsonMatch[0]);
-        } else {
-          // Fallback: manual parsing if JSON extraction fails
-          questions = parseQuestionsFromText(data[0].generated_text);
-        }
-      } catch (parseError) {
-        console.error("Error parsing AI response:", parseError);
-        // Fallback to mock questions if parsing fails
-        questions = generateMockQuestions(aiTopic, questionCount, difficultyLevel);
-      }
-      
-      setGeneratedContent({
-        title: `${aiTopic} - ${activeAIType}`,
-        type: activeAIType,
-        questions: questions.questions || questions,
-        topic: aiTopic
+      const prompt = `Create a ${activeAIType} about "${aiTopic}" with ${questionCount} ${difficultyLevel} difficulty questions. 
+      Each question should have 4 options and include an explanation for the correct answer.
+      Format the response as JSON with this structure: 
+      {
+        "title": "Title of the assessment",
+        "type": "${activeAIType}",
+        "difficulty": "${difficultyLevel}",
+        "questions": [
+          {
+            "question": "Question text",
+            "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+            "correctAnswer": 0,
+            "explanation": "Explanation of why this is correct"
+          }
+        ]
+      }`;
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer sk-or-v1",
+          "HTTP-Referer": "http://localhost:5173",
+          "X-Title": "LMS Pro",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "deepseek/deepseek-r1:free",
+          "messages": [
+            {
+              "role": "user",
+              "content": prompt
+            }
+          ]
+        })
       });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      
+      // Extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const generatedData = JSON.parse(jsonMatch[0]);
+        setGeneratedContent(generatedData);
+      } else {
+        throw new Error("No valid JSON found in response");
+      }
       
     } catch (error) {
       console.error("Error generating AI content:", error);
@@ -237,93 +265,6 @@ export default function CourseManagementPage() {
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  // Alternative API call using OpenAI format (if you have an OpenAI API key)
-  const generateWithOpenAI = async () => {
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an educational content creator. Generate assessment questions in JSON format.'
-            },
-            {
-              role: 'user',
-              content: `Create ${questionCount} ${difficultyLevel} difficulty ${activeAIType} questions about ${aiTopic}. 
-              Return a JSON object with a "questions" array. Each question should have:
-              - "question": the question text
-              - "options": array of 4 options
-              - "correctAnswer": index of the correct option (0-3)
-              - "explanation": brief explanation of the answer`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
-
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-      
-      // Extract JSON from the response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-      
-      throw new Error("No JSON found in response");
-    } catch (error) {
-      console.error("OpenAI API error:", error);
-      throw error;
-    }
-  };
-
-  // Helper function to parse questions from text
-  const parseQuestionsFromText = (text) => {
-    const questions = [];
-    const lines = text.split('\n');
-    
-    let currentQuestion = null;
-    
-    for (const line of lines) {
-      if (line.match(/^\d+\./)) {
-        // New question
-        if (currentQuestion) questions.push(currentQuestion);
-        currentQuestion = {
-          question: line.replace(/^\d+\.\s*/, ''),
-          options: [],
-          correctAnswer: 0,
-          explanation: ''
-        };
-      } else if (line.match(/^[A-D]\./)) {
-        // Option
-        if (currentQuestion) {
-          currentQuestion.options.push(line.replace(/^[A-D]\.\s*/, ''));
-        }
-      } else if (line.match(/^Answer:/)) {
-        // Answer
-        if (currentQuestion) {
-          const answerLetter = line.match(/Answer:\s*([A-D])/i);
-          if (answerLetter) {
-            currentQuestion.correctAnswer = ['A', 'B', 'C', 'D'].indexOf(answerLetter[1].toUpperCase());
-          }
-        }
-      } else if (line.trim() && currentQuestion) {
-        // Explanation or additional text
-        currentQuestion.explanation += line.trim() + ' ';
-      }
-    }
-    
-    if (currentQuestion) questions.push(currentQuestion);
-    return { questions };
   };
 
   // Save AI-generated assessment to Firestore
@@ -406,6 +347,7 @@ export default function CourseManagementPage() {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
+      <h1 className="text-2xl font-bold mb-6 text-blue-800">Course Management</h1>
 
       {/* Tabs */}
       <div className="flex space-x-6 border-b mb-6">
@@ -574,6 +516,8 @@ export default function CourseManagementPage() {
                   <option value="document">Document</option>
                   <option value="presentation">Presentation</option>
                   <option value="image">Image</option>
+                  <option value="audio">Audio</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
             </div>
@@ -619,6 +563,11 @@ export default function CourseManagementPage() {
                   Current file: <a href={editingContent.fileURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View file</a>
                 </p>
               )}
+              {uploadStatus && (
+                <p className={`text-sm mt-1 ${uploadStatus.includes("successful") ? "text-green-600" : "text-red-600"}`}>
+                  {uploadStatus}
+                </p>
+              )}
             </div>
             
             <div className="flex justify-end space-x-3">
@@ -631,6 +580,7 @@ export default function CourseManagementPage() {
                     setDescription("");
                     setFile(null);
                     setSelectedCourse("");
+                    setUploadStatus("");
                   }}
                   className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
                 >
@@ -663,21 +613,23 @@ export default function CourseManagementPage() {
                         {content.type} • {course ? course.title : "Unknown Course"}
                       </p>
                       <p className="text-sm mt-1">{content.description}</p>
+                      {content.uploadedAt && (
+                        <p className="text-xs text-gray-400 mt-1">Uploaded: {content.uploadedAt}</p>
+                      )}
+                    </div>
+                    <div className="space-x-2 flex flex-col sm:flex-row">
                       {content.fileURL && (
                         <a 
                           href={content.fileURL} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-blue-600 text-sm underline mt-1 inline-block"
+                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 mb-2 sm:mb-0 text-center"
                         >
-                          View File
+                          View
                         </a>
                       )}
-                      <p className="text-xs text-gray-400 mt-1">Uploaded: {content.date}</p>
-                    </div>
-                    <div className="space-x-2">
                       <button 
-                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 mb-2 sm:mb-0"
                         onClick={() => {
                           setEditingContent(content);
                           setTitle(content.title);
@@ -685,6 +637,7 @@ export default function CourseManagementPage() {
                           setDescription(content.description);
                           setSelectedCourse(content.courseId);
                           setFile(null);
+                          setUploadStatus("");
                         }}
                       >
                         Edit
