@@ -13,13 +13,13 @@ import {
 
 export default function CalendarPage() {
   const [date, setDate] = useState(new Date());
-  const [events, setEvents] = useState([]); // ✅ fixed typo
+  const [events, setEvents] = useState([]);
   const [selectedDateEvents, setSelectedDateEvents] = useState([]);
 
   const eventsCollection = collection(db, "events");
 
   // Fetch all events from Firestore
-  const fetchEvents = async () => { // ✅ unified naming
+  const fetchEvents = async () => {
     const snapshot = await getDocs(eventsCollection);
     const eventsData = snapshot.docs.map((doc) => ({
       id: doc.id,
@@ -79,22 +79,26 @@ export default function CalendarPage() {
       <Calendar
         onChange={setDate}
         value={date}
-        tileContent={tileContent} // 🔹 Add event marker
+        tileContent={tileContent} // Add event marker
       />
-      <h3>Events on {date.toDateString()}</h3>
-      <ul>
-        {selectedDateEvents.length === 0 ? (
-          <li>No events</li>
-        ) : (
-          selectedDateEvents.map((event) => (
-            <li key={event.id}>
-              {event.title}{" "}
-              <button onClick={() => deleteEvent(event.id)}>❌</button>
-            </li>
-          ))
-        )}
-      </ul>
-      <button onClick={addEvent}>➕ Add Event</button>
+
+      {/* Added margin top for spacing */}
+      <div style={{ marginTop: "50px" }}>
+        <h3>Events on {date.toDateString()}</h3>
+        <ul>
+          {selectedDateEvents.length === 0 ? (
+            <li>No events</li>
+          ) : (
+            selectedDateEvents.map((event) => (
+              <li key={event.id}>
+                {event.title}{" "}
+                <button onClick={() => deleteEvent(event.id)}>❌</button>
+              </li>
+            ))
+          )}
+        </ul>
+        <button onClick={addEvent}>➕ Add Event</button>
+      </div>
     </div>
   );
 }

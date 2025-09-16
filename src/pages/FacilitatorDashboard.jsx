@@ -10,6 +10,7 @@ import {
   FaBars,
   FaTimes,
   FaCalendarAlt,
+  FaQuestionCircle,
   FaUserPlus,
 } from "react-icons/fa";
 import { auth } from "../firebase";
@@ -18,8 +19,8 @@ import EnrollStudent from "./EnrollStudent";
 import Messages from "../components/MessagesPage";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
-import LearningMaterialsPage from "../components/LearningMaterialsPage";
 import CalendarPage from "../components/CalendarPage";
+import FacilitatorHelp from "../components/FacilitatorHelp";
 
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -81,8 +82,8 @@ export default function FacilitatorDashboard() {
     { icon: <FaEnvelope />, label: "Messages", page: "Messages" },
     { icon: <FaBook />, label: "Course Management", page: "Manage-Courses" },
     { icon: <FaCheckSquare />, label: "Grading", page: "Grading" },
-    { icon: <FaFileAlt />, label: "Learning Materials", page: "Materials" },
     { icon: <FaCalendarAlt />, label: "Calendar", page: "Calendar" },
+    { icon: <FaQuestionCircle />, label: "Help", page: "FacilitatorHelp" },
   ];
 
   // Render current page
@@ -98,10 +99,10 @@ export default function FacilitatorDashboard() {
         return <CourseManagementPage />;
       case "Grading":
         return <GradingPage darkMode={darkMode} />;
-      case "Materials":
-        return <LearningMaterialsPage />;
       case "Calendar":
         return <CalendarPage />;
+      case "FacilitatorHelp":
+        return <FacilitatorHelp />;
       default:
         return <Dashboard />;
     }
@@ -158,7 +159,7 @@ export default function FacilitatorDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center mb-6">
           <button
             className="md:hidden p-2 bg-blue-500 text-white rounded-lg"
             onClick={() => setIsSidebarOpen(true)}
@@ -166,19 +167,18 @@ export default function FacilitatorDashboard() {
           >
             <FaBars />
           </button>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="flex-1 mx-4 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-          />
-          <button
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-            style={{ backgroundColor: profileColor }}
-            onClick={() => setProfilePopup(true)}
-          >
-            {firstInitial}
-            {lastInitial}
-          </button>
+
+          {/* Profile Button aligned top-right */}
+          <div className="ml-auto">
+            <button
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+              style={{ backgroundColor: profileColor }}
+              onClick={() => setProfilePopup(true)}
+            >
+              {firstInitial}
+              {lastInitial}
+            </button>
+          </div>
         </div>
 
         {profilePopup && (

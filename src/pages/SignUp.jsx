@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { 
   createUserWithEmailAndPassword, 
   sendEmailVerification 
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { useNavigate, Link } from 'react-router-dom';
-import { auth, db } from '../firebase';
-import './SignUp.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
+} from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { useNavigate, Link } from "react-router-dom";
+import { auth, db } from "../firebase";
+import "./SignUp.css";
+import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function SignUpPage() {
   const [fullName, setFullName] = useState("");
@@ -17,6 +17,9 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   // Live validation: Full Name can only have letters and spaces
   const handleFullNameChange = (e) => {
@@ -56,14 +59,41 @@ export default function SignUpPage() {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const formErrors = validateForm();
-    if (Object.keys(formErrors).length === 0) {
-      alert(`✅ Signup successful for ${fullName} (client-side only)`);
-      setFullName(""); setEmail(""); setPassword(""); setConfirmPassword(""); setAgreeTerms(false);
-    } else {
+    if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 2. Send email verification
+      await sendEmailVerification(user);
+
+      // 3. Store user details in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        fullName,
+        email,
+        role: "student",   // default role
+        createdAt: new Date(),
+      });
+
+      // 4. Redirect to success page with credentials
+      navigate("/signup-success", {
+        state: { fullName, email, password }
+      });
+
+    } catch (err) {
+      console.error("Signup error:", err);
+      setErrors({ firebase: err.message });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -79,8 +109,9 @@ export default function SignUpPage() {
         </div>
 
         <h2 className="mb-3 text-center fw-bold">Sign Up for LMS Pro</h2>
-        <form onSubmit={handleSubmit}>
+        {errors.firebase && <div className="alert alert-danger">{errors.firebase}</div>}
 
+        <form onSubmit={handleSubmit}>
           {/* Full Name */}
           <div className="mb-3">
             <label>Full Name</label>
@@ -166,12 +197,14 @@ export default function SignUpPage() {
               id="termsCheck"
             />
             <label className="form-check-label" htmlFor="termsCheck">
-              I agree to the <Link to="/privacy">PrivacyPolicy</Link>
+              I agree to the <Link to="/privacy-policy">Privacy Policy</Link>
             </label>
             {errors.agreeTerms && <div className="invalid-feedback d-block">{errors.agreeTerms}</div>}
           </div>
 
-          <button type="submit" className="btn btn-primary w-100 py-2">Sign Up</button>
+          <button type="submit" className="btn btn-primary w-100 py-2" disabled={loading}>
+            {loading ? "Signing up..." : "Sign Up"}
+          </button>
         </form>
 
         <p className="text-center mt-3">
