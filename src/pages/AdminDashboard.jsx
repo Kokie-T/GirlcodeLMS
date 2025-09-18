@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { signOut } from "firebase/auth";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import {
-  collection,
-  getDocs,
-} from "firebase/firestore";
 
 import Overview from "./Overview";
 import UsersManagement from "./UsersManagement";
-import FacilitatorsManagement from "./FacilitatorsManagement";
 import CoursesManagement from "./ContentManagement";
 import SystemSettings from "./SystemSettings";
 import ReportsPage from "./Reports";
-import MessagesPage from "./MessagesPage"; // new messages page
-
+import MessagesPage from "./MessagesPage";
 
 import {
   FaUsers,
@@ -28,10 +22,50 @@ import {
   FaEnvelope,
 } from "react-icons/fa";
 
+// Overlay for modals
+const Overlay = ({ children, onClose }) => (
+  <div
+    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+    onClick={onClose}
+  >
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl p-6 w-96 shadow-lg"
+      onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
+    >
+      {children}
+    </div>
+  </div>
+);
+
+// Logout confirmation popup
+const LogoutPopup = ({ onConfirm, onCancel }) => (
+  <Overlay onClose={onCancel}>
+    <h2 className="text-lg font-semibold mb-4 dark:text-white">👋 Confirm Logout</h2>
+    <p className="mb-6 dark:text-gray-300">
+      Are you sure you want to log out?
+    </p>
+    <div className="flex justify-end gap-3">
+      <button
+        onClick={onCancel}
+        className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onConfirm}
+        className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition"
+      >
+        Logout
+      </button>
+    </div>
+  </Overlay>
+);
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [adminEmail, setAdminEmail] = useState("");
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const navigate = useNavigate();
 
   // Get current admin email
@@ -53,17 +87,28 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <Overview />;
+        return (
+          <div>
+            {/* Welcome Message */}
+            <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-xl shadow-md p-4 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800">
+                👋 Welcome back, {auth.currentUser?.displayName || adminEmail?.split("@")[0] || "Admin"}!
+              </h3>
+              <p className="text-gray-700">
+                Here’s an overview of your Portal. Manage students, facilitators, courses, and more from the sidebar.
+              </p>
+            </div>
+            <Overview />
+          </div>
+        );
       case "users":
         return <UsersManagement />;
-      case "facilitators":
-        return <FacilitatorsManagement />;
       case "courses":
         return <CoursesManagement />;
       case "reports":
         return <ReportsPage />;
       case "messages":
-        return <MessagesPage />; // Messages tab
+        return <MessagesPage />;
       case "settings":
         return <SystemSettings />;
       default:
@@ -96,9 +141,8 @@ export default function AdminDashboard() {
         {[
           { key: "overview", icon: <FaChartBar />, label: "Overview" },
           { key: "users", icon: <FaUsers />, label: "Users" },
-          { key: "facilitators", icon: <FaUserTie />, label: "Facilitators" },
           { key: "courses", icon: <FaBook />, label: "Courses" },
-          { key: "messages", icon: <FaEnvelope />, label: "Messages" }, // new
+          { key: "messages", icon: <FaEnvelope />, label: "Messages" },
           { key: "reports", icon: <FaBook />, label: "Reports" },
           { key: "settings", icon: <FaCog />, label: "Settings" },
         ].map((item) => (
@@ -119,7 +163,7 @@ export default function AdminDashboard() {
 
         <button
           className="flex items-center gap-3 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition"
-          onClick={handleLogout}
+          onClick={() => setShowLogoutPopup(true)}
         >
           <FaSignOutAlt /> Logout
         </button>
@@ -151,6 +195,14 @@ export default function AdminDashboard() {
         {/* Content */}
         <div className="p-6">{renderContent()}</div>
       </div>
+
+      {/* Logout confirmation popup */}
+      {showLogoutPopup && (
+        <LogoutPopup
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutPopup(false)}
+        />
+      )}
     </div>
   );
 }
