@@ -219,7 +219,7 @@ export default function CourseManagementPage() {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": "Bearer sk-or-v1",
+          "Authorization": "Bearer",
           "HTTP-Referer": "http://localhost:5173",
           "X-Title": "LMS Pro",
           "Content-Type": "application/json"

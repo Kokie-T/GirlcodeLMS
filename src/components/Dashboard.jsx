@@ -1,4 +1,3 @@
-// Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import { FaUsers, FaCheckSquare, FaBook, FaEnvelope } from "react-icons/fa";
 import {
@@ -18,118 +17,102 @@ const Dashboard = ({ setActivePage }) => {
   const [pendingGrades, setPendingGrades] = useState(0);
   const [messages, setMessages] = useState(0);
   const [recentActivity, setRecentActivity] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
 
-  // --- Real-time total students ---
   useEffect(() => {
+    // Total students
     const q = query(collection(db, "users"), where("role", "==", "student"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setTotalStudents(snap.size);
-    });
-    return () => unsubscribe();
+    const unsub = onSnapshot(q, (snap) => setTotalStudents(snap.size));
+    return () => unsub();
   }, []);
 
-  // --- Real-time active courses ---
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "courses"), (snap) => {
-      setActiveCourses(snap.size);
-    });
-    return () => unsubscribe();
+    // Active courses
+    const unsub = onSnapshot(collection(db, "courses"), (snap) => setActiveCourses(snap.size));
+    return () => unsub();
   }, []);
 
-  // --- Real-time pending grades ---
   useEffect(() => {
-    const q = query(
-      collection(db, "Submissions"),
-      where("graded", "==", false)
+    // Pending grades
+    const q = query(collection(db, "Submissions"), where("graded", "==", false));
+    const unsub = onSnapshot(q, (snap) => setPendingGrades(snap.size));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    // Recent announcements
+    const q = query(collection(db, "announcements"), orderBy("timestamp", "desc"), limit(5));
+    const unsub = onSnapshot(q, (snap) => 
+      setRecentActivity(snap.docs.map(doc => ({
+        id: doc.id,
+        title: doc.data().title,
+        subtitle: doc.data().description || "",
+        timestamp: doc.data().timestamp?.toDate() || new Date(0),
+        type: "announcement"
+      })))
     );
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setPendingGrades(snap.size);
-    });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  // --- Real-time recent activity (last 5 announcements) ---
   useEffect(() => {
-    const q = query(
-      collection(db, "announcements"),
-      orderBy("timestamp", "desc"),
-      limit(5)
+    // Upcoming calendar events from today
+    const today = new Date().toISOString().split("T")[0];
+    const q = query(collection(db, "events"), where("date", ">=", today), orderBy("date", "asc"), limit(5));
+    const unsub = onSnapshot(q, (snap) =>
+      setCalendarEvents(snap.docs.map(doc => ({
+        id: doc.id,
+        title: doc.data().title,
+        subtitle: `Event Date: ${doc.data().date}`,
+        timestamp: new Date(doc.data().date),
+        type: "event"
+      })))
     );
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setRecentActivity(
-        snap.docs.map((doc) => ({
-          title: doc.data().title,
-          subtitle: doc.data().description || "",
-        }))
-      );
-    });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  // --- Real-time unread messages ---
   useEffect(() => {
     if (!auth.currentUser) return;
     const facilitatorId = auth.currentUser.uid;
-
-    const convQ = query(
-      collection(db, "conversations"),
-      where("participants", "array-contains", facilitatorId)
-    );
-
-    const unsubscribe = onSnapshot(convQ, (convSnap) => {
+    const convQ = query(collection(db, "conversations"), where("participants", "array-contains", facilitatorId));
+    let unsubFuncs = [];
+    
+    const unsub = onSnapshot(convQ, (convSnap) => {
       let totalUnread = 0;
-
+      unsubFuncs.forEach(unsub => unsub());
+      unsubFuncs = [];
       convSnap.docs.forEach((convDoc) => {
         const msgsRef = collection(db, "conversations", convDoc.id, "messages");
-        const unreadQ = query(
-          msgsRef,
-          where("seen", "==", false),
-          where("senderId", "!=", facilitatorId)
-        );
-
-        // nested listener for each conversation
-        onSnapshot(unreadQ, (unreadSnap) => {
+        const unreadQ = query(msgsRef, where("seen", "==", false), where("senderId", "!=", facilitatorId));
+        const unsubUnread = onSnapshot(unreadQ, (unreadSnap) => {
           totalUnread += unreadSnap.size;
           setMessages(totalUnread);
         });
+        unsubFuncs.push(unsubUnread);
       });
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsub();
+      unsubFuncs.forEach(unsub => unsub());
+    };
   }, []);
 
+  // Merge announcements and events
+  const combinedActivities = [...recentActivity, ...calendarEvents]
+    .sort((a, b) => b.timestamp - a.timestamp);
+
   const stats = [
-    {
-      number: totalStudents,
-      label: "Total Students",
-      icon: <FaUsers />,
-      color: "text-blue-600",
-    },
-    {
-      number: pendingGrades,
-      label: "Pending Grades",
-      icon: <FaCheckSquare />,
-      color: "text-green-600",
-    },
-    {
-      number: activeCourses,
-      label: "Active Courses",
-      icon: <FaBook />,
-      color: "text-yellow-600",
-    },
-    {
-      number: messages,
-      label: "Messages",
-      icon: <FaEnvelope />,
-      color: "text-purple-600",
-    },
+    { number: totalStudents, label: "Total Students", icon: <FaUsers />, color: "text-pink-600" },
+    { number: pendingGrades, label: "Pending Grades", icon: <FaCheckSquare />, color: "text-pink-600" },
+    { number: activeCourses, label: "Active Courses", icon: <FaBook />, color: "text-pink-600" },
+    { number: messages, label: "Messages", icon: <FaEnvelope />, color: "text-pink-600" },
   ];
 
   const quickActions = [
-    { text: "Post New Material", color: "bg-blue-600", page: "Materials" },
-    { text: "Grade Assignments", color: "bg-green-600", page: "Grading" },
-    { text: "Send Announcement", color: "bg-purple-600", page: "Announcements" },
-    { text: "Enroll Student", color: "bg-yellow-600", page: "Enroll" },
+    { text: "Post New Material", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Course" },
+    { text: "Grade Assignments", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Grading" },
+    { text: "Send Announcement", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Announcements" },
+    { text: "Enroll Student", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "EnrollStudent" },
   ];
 
   const handleAction = (action) => {
@@ -147,29 +130,26 @@ const Dashboard = ({ setActivePage }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow p-5">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">
-            Recent Activity
-          </h2>
-          {recentActivity.length > 0 ? (
-            recentActivity.map((act, i) => <ActivityItem key={i} {...act} />)
+        {/* To-Do List with pulse glow animation */}
+        <div 
+          className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-5 pulse-glow"
+          style={{ boxShadow: "0 4px 15px -5px rgb(59 130 246 / 0.75), 0 7px 30px -10px rgb(236 72 153 / 0.75)" }}
+        >
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">To-do List</h2>
+          {combinedActivities.length > 0 ? (
+            combinedActivities.map((act) => (
+              <ActivityItem key={act.id} title={act.title} subtitle={act.subtitle} />
+            ))
           ) : (
-            <p className="dark:text-white">No recent activity.</p>
+            <p className="dark:text-white">No to-do items found.</p>
           )}
         </div>
 
         {/* Quick Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">
-            Quick Actions
-          </h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">Quick Actions</h2>
           {quickActions.map((action, i) => (
-            <ActionButton
-              key={i}
-              {...action}
-              onClick={() => handleAction(action)}
-            />
+            <ActionButton key={i} {...action} onClick={() => handleAction(action)} />
           ))}
         </div>
       </div>
@@ -177,9 +157,8 @@ const Dashboard = ({ setActivePage }) => {
   );
 };
 
-// --- Components ---
 const StatCard = ({ number, label, icon, color }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 flex items-center justify-between">
+  <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-5 flex items-center justify-between transform transition-transform hover:scale-105">
     <div>
       <p className={`text-2xl font-bold ${color}`}>{number}</p>
       <p className="text-sm text-gray-600 dark:text-gray-300">{label}</p>
@@ -189,8 +168,8 @@ const StatCard = ({ number, label, icon, color }) => (
 );
 
 const ActivityItem = ({ title, subtitle }) => (
-  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border mb-2 border-gray-200 dark:border-gray-600">
-    <p className="font-medium dark:text-white">{title}</p>
+  <div className="p-3 rounded-lg border mb-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+    <p>{title}</p>
     <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
   </div>
 );
