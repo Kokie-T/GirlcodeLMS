@@ -31,7 +31,7 @@ import GradingPage from "./components/GradingPage";
 import LearningMaterialsPage from "./components/LearningMaterialsPage";
 import CalendarPage from "./components/CalendarPage";
 import LearnerMessages from "./components/LearnerMessages";
-
+import SidebarCalendar from "./components/SidebarCalender";
 // ✅ Import the new success page
 import SignupSuccess from './pages/SignupSuccess';
 
@@ -73,6 +73,7 @@ function AppContent() {
         <Route path="/grading" element={<GradingPage />} />
         <Route path="/materials" element={<LearningMaterialsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/learner/calendar" element={<SidebarCalendar />} />
 
         {/* ✅ Add Learner Messages route */}
         <Route path="/learner/messages" element={<LearnerMessages />} />

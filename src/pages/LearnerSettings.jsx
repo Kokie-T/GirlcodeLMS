@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, updatePassword, updateEmail } from "firebase/auth";
+import { getAuth, updatePassword, updateEmail, signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { HiOutlineHome, HiOutlineBookOpen, HiOutlineUser, HiOutlineLogout, HiMenu, HiX } from "react-icons/hi";
+import {
+  HiOutlineHome,
+  HiOutlineBookOpen,
+  HiOutlineUser,
+  HiOutlineLogout,
+  HiMenu,
+  HiX,
+} from "react-icons/hi";
 import { FaUserCircle } from "react-icons/fa";
 
 export default function LearnerSettings() {
@@ -13,17 +20,21 @@ export default function LearnerSettings() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
-  const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
+  const [formData, setFormData] = useState({
+    fullname: "",
+    email: "",
+    password: "",
+  });
+  const [message, setMessage] = useState({ type: "", text: "" });
   const avatarInputRef = useRef(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  
 
+  // Sidebar items (logout separate at bottom)
   const menuItems = [
     { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
     { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Help", icon:<HiOutlineUser/>, path:"/help" },
-    { name: "Logout", icon: <HiOutlineLogout />, action: () => setShowLogoutConfirm(true) }, 
-   ];
+    { name: "Help", icon: <HiOutlineUser />, path: "/help" },
+  ];
 
   // Fetch user profile
   useEffect(() => {
@@ -34,7 +45,11 @@ export default function LearnerSettings() {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const data = userSnap.data();
-        setFormData({ fullname: data.fullname || "", email: data.email || user.email, password: "" });
+        setFormData({
+          fullname: data.fullname || "",
+          email: data.email || user.email,
+          password: "",
+        });
         setAvatar(data.avatar || null);
       }
     };
@@ -59,7 +74,8 @@ export default function LearnerSettings() {
   };
 
   // Handle input changes
-  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   // Save profile updates
   const handleUpdateProfile = async (e) => {
@@ -71,100 +87,212 @@ export default function LearnerSettings() {
       await updateDoc(userRef, { fullname: formData.fullname });
 
       // Update email if changed
-      if (formData.email !== user.email) await updateEmail(user, formData.email);
+      if (formData.email !== user.email) {
+        await updateEmail(user, formData.email);
+      }
 
       // Update password if provided
-      if (formData.password) await updatePassword(user, formData.password);
+      if (formData.password) {
+        await updatePassword(user, formData.password);
+      }
 
-      alert("Profile updated successfully!");
+      setMessage({ type: "success", text: "Profile updated successfully!" });
       setFormData((prev) => ({ ...prev, password: "" })); // clear password field
     } catch (err) {
       console.error("Error updating profile:", err);
-      alert(err.message || "Failed to update profile");
+      setMessage({
+        type: "error",
+        text: err.message || "Failed to update profile",
+      });
     }
   };
-  const confirmLogout = async () => {
-  try {
-    await auth.signOut();
-    navigate("/login");
-  } catch (err) {
-    console.error("Logout failed:", err);
-    alert("Logout failed. Try again.");
-  }
-};
 
+  // Logout
+  const confirmLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      setMessage({ type: "error", text: "Logout failed. Try again." });
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-blue-100 to-pink-100 shadow-lg p-5 transform transition-transform duration-300 z-50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-8">My LMS</h2>
-        <nav className="space-y-3">
-          {menuItems.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                if (item.action) item.action();
-                else navigate(item.path);
-                setSidebarOpen(false);
-              }}
-              className="flex items-center gap-3 w-full p-2 rounded-lg text-gray-700 hover:bg-white hover:shadow transition"
-            >
-              <span className="text-lg">{item.icon}</span>
-              {item.name}
-            </button>
-          ))}
-        </nav>
+      <div
+        className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg flex flex-col justify-between transform transition-transform duration-300 z-50 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
+        <div>
+          <h2 className="text-2xl font-bold text-center py-6 border-b text-gray-800">
+            LMS Pro <br />
+            <span className="text-sm text-gray-500">Learner Portal</span>
+          </h2>
+          <nav className="mt-6 flex flex-col gap-3 px-3">
+            {menuItems.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  navigate(item.path);
+                  setSidebarOpen(false);
+                }}
+                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:scale-105 transition transform duration-200"
+              >
+                <span className="text-lg">{item.icon}</span>
+                {item.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-4 border-t">
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
+          >
+            <HiOutlineLogout /> Logout
+          </button>
+        </div>
       </div>
+
       {/* Logout Confirmation */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirm Logout</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Confirm Logout
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to log out?
+            </p>
             <div className="flex justify-end space-x-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition">Cancel</button>
-              <button onClick={confirmLogout} className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition">Logout</button>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Mobile toggle */}
-      <button className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow" onClick={() => setSidebarOpen(!sidebarOpen)}>
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
         {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
       </button>
 
       {/* Main Content */}
       <div className="flex-1 p-6 md:ml-64">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800 text-center">Profile Management</h1>
-        <form onSubmit={handleUpdateProfile} className="bg-white rounded-xl shadow-lg p-8 space-y-6 max-w-xl mx-auto">
+        <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm text-center">
+          <h1 className="text-3xl font-bold text-gray-800">
+            Update Profile
+          </h1>
+        </header>
+
+        <form
+          onSubmit={handleUpdateProfile}
+          className="bg-white rounded-xl shadow-lg p-8 space-y-6 max-w-xl mx-auto"
+        >
           {/* Avatar */}
           <div className="flex flex-col items-center">
-            {avatar ? <img src={avatar} alt="Avatar" className="w-28 h-28 rounded-full object-cover border-4 border-pink-200 shadow-md cursor-pointer" onClick={() => avatarInputRef.current.click()} />
-              : <FaUserCircle size={96} className="text-pink-300 cursor-pointer" onClick={() => avatarInputRef.current.click()} />}
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+            {avatar ? (
+              <img
+                src={avatar}
+                alt="Avatar"
+                className="w-28 h-28 rounded-full object-cover border-4 border-pink-200 shadow-md cursor-pointer"
+                onClick={() => avatarInputRef.current.click()}
+              />
+            ) : (
+              <FaUserCircle
+                size={96}
+                className="text-pink-300 cursor-pointer"
+                onClick={() => avatarInputRef.current.click()}
+              />
+            )}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
           </div>
 
           {/* Full Name */}
           <div>
-            <label className="block mb-2 font-medium text-gray-700">Full Name</label>
-            <input type="text" name="fullname" value={formData.fullname} onChange={handleInputChange} placeholder="Your full name" className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200" required />
+            <label className="block mb-2 font-medium text-gray-700">
+              Full Name
+            </label>
+            <input
+              type="text"
+              name="fullname"
+              value={formData.fullname}
+              onChange={handleInputChange}
+              placeholder="Your full name"
+              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
+              required
+            />
           </div>
 
           {/* Email */}
           <div>
             <label className="block mb-2 font-medium text-gray-700">Email</label>
-            <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="you@example.com" className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200" required />
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="you@example.com"
+              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
+              required
+            />
           </div>
 
           {/* Password */}
           <div>
-            <label className="block mb-2 font-medium text-gray-700">New Password</label>
-            <input type="password" name="password" value={formData.password} onChange={handleInputChange} placeholder="Enter new password" className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+            <label className="block mb-2 font-medium text-gray-700">
+              New Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="Enter new password"
+              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
+            />
           </div>
 
-          <button type="submit" className="w-full py-3 bg-gradient-to-r from-blue-200 to-pink-200 text-gray-800 font-semibold rounded-xl shadow hover:scale-105 transition">Update Profile</button>
+          {/* Inline Feedback */}
+          {message.text && (
+            <p
+              className={`text-sm ${
+                message.type === "success" ? "text-green-600" : "text-red-500"
+              }`}
+            >
+              {message.text}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-3 bg-gradient-to-r from-blue-200 to-pink-200 text-gray-800 font-semibold rounded-xl shadow hover:scale-105 transition"
+          >
+            Update Profile
+          </button>
         </form>
       </div>
     </div>

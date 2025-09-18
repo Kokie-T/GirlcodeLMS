@@ -73,6 +73,13 @@ export default function SignUpPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+       email: formData.email,
+        role: "student", // or "Facilitator" / "Admin"
+       createdAt: new Date(),
+      });
+
       // 2. Send email verification
       await sendEmailVerification(user);
 

@@ -74,7 +74,7 @@ export default function Login() {
       setError("❌ Failed to send reset email. Make sure the email is correct.");
     }
   };
-
+  
   return (
     <Container className="login-page py-5" style={{ minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
       <Row className="justify-content-center">

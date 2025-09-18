@@ -2,8 +2,20 @@ import React, { useState, useEffect } from "react";
 import { getAuth, signOut } from "firebase/auth";
 import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import { FaTachometerAlt, FaBook, FaEnvelope, FaSignOutAlt, FaBars, FaTimes, FaCheckSquare, FaScrewdriver } from "react-icons/fa";
+import {
+  FaTachometerAlt,
+  FaBook,
+  FaEnvelope,
+  FaSignOutAlt,
+  FaBars,
+  FaTimes,
+  FaCheckSquare,
+  FaScrewdriver,
+  FaCalendar,
+} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 
 // ---------- Reusable Cards ----------
 const StatsCard = ({ title, value, icon, color }) => (
@@ -16,6 +28,7 @@ const StatsCard = ({ title, value, icon, color }) => (
   </div>
 );
 
+// ---------- Course Card ----------
 const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNavigate }) => {
   const isExpanded = expanded[course.id];
   const contentProgress = course.progress || 0;
@@ -33,15 +46,33 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
       </div>
 
       <div className="w-full bg-gray-200 dark:bg-gray-700 h-4 rounded-full overflow-hidden relative mb-2">
-        <div className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out" style={{ width: `${contentWidth}%` }} />
-        <div className="absolute left-0 top-0 h-4 bg-pink-400 opacity-70 transition-all duration-700 ease-out" style={{ width: `${quizWidth}%` }} />
+        <div
+          className="absolute left-0 top-0 h-4 bg-blue-400 transition-all duration-700 ease-out"
+          style={{ width: `${contentWidth}%` }}
+        />
+        <div
+          className="absolute left-0 top-0 h-4 bg-pink-400 opacity-70 transition-all duration-700 ease-out"
+          style={{ width: `${quizWidth}%` }}
+        />
       </div>
 
-      <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">Content: {contentProgress}%, Quiz Avg: {avgScore}%</p>
+      <p className="text-sm text-gray-500 dark:text-gray-300 mb-3">
+        Content: {contentProgress}%, Quiz Avg: {avgScore}%
+      </p>
 
       <div className="flex flex-wrap gap-2 mb-2">
-        <button onClick={() => onNavigate(`/quiz/${course.id}`)} className="px-3 py-1 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-lg text-sm hover:opacity-90 hover:scale-105 transition transform duration-200">Take Quiz</button>
-        <button onClick={() => onNavigate(`/course-materials/${course.id}`)} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition transform duration-200">Materials</button>
+        <button
+          onClick={() => onNavigate(`/quiz/${course.id}`)}
+          className="px-3 py-1 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-lg text-sm hover:opacity-90 hover:scale-105 transition transform duration-200"
+        >
+          Take Quiz
+        </button>
+        <button
+          onClick={() => onNavigate(`/course-materials/${course.id}`)}
+          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 hover:scale-105 transition transform duration-200"
+        >
+          Materials
+        </button>
       </div>
 
       {isExpanded && history.length > 0 && (
@@ -51,7 +82,10 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
             {history.map((attempt, idx) => (
               <li key={idx} className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1">
                 <span>Attempt {history.length - idx}</span>
-                <span>{attempt.score}% - {attempt.date.toLocaleDateString()} {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>
+                  {attempt.score}% - {attempt.date.toLocaleDateString()}{" "}
+                  {attempt.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
               </li>
             ))}
           </ul>
@@ -61,8 +95,7 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
   );
 };
 
-
-// ---------- Overlay Component ----------
+// ---------- Overlay ----------
 const Overlay = ({ children, onClose }) => (
   <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative" onClick={e => e.stopPropagation()}>
@@ -71,11 +104,16 @@ const Overlay = ({ children, onClose }) => (
   </div>
 );
 
-export const ProfilePopup = ({ user, darkMode, setDarkMode, profileColor, setProfileColor, close }) => (
+const ProfilePopup = ({ user, darkMode, setDarkMode, profileColor, setProfileColor, close }) => (
   <Overlay onClose={close}>
-    <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}><FaTimes /></button>
+    <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}>×</button>
     <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
-    <input type="text" value={user.fullname} readOnly className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" />
+    <input
+      type="text"
+      value={user.fullname}
+      readOnly
+      className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+    />
     <label className="flex items-center gap-2 mb-4 dark:text-white">
       <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} /> Dark Mode
     </label>
@@ -86,7 +124,7 @@ export const ProfilePopup = ({ user, darkMode, setDarkMode, profileColor, setPro
   </Overlay>
 );
 
-export const LogoutPopup = ({ onConfirm, onCancel }) => (
+const LogoutPopup = ({ onConfirm, onCancel }) => (
   <Overlay onClose={onCancel}>
     <h2 className="text-lg font-semibold mb-4 dark:text-white">Confirm Logout</h2>
     <p className="mb-6 dark:text-gray-300">Are you sure you want to log out?</p>
@@ -109,20 +147,23 @@ export default function LearnerDashboard() {
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [results, setResults] = useState({});
   const [history, setHistory] = useState({});
-  const [messages, setMessages] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [profilePopup, setProfilePopup] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [darkMode, setDarkMode] = useState(JSON.parse(localStorage.getItem("darkMode")) || false);
   const [profileColor, setProfileColor] = useState(localStorage.getItem("profileColor") || "#4F46E5");
+  const [events, setEvents] = useState([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
 
   const sidebarItems = [
     { icon: <FaTachometerAlt />, label: "Dashboard", path: "/learner-dashboard" },
     { icon: <FaBook />, label: "My Courses", path: "/courses" },
     { icon: <FaEnvelope />, label: "Messages", path: "/learner/messages" },
-    { icon: <FaScrewdriver />, label: "Settings", path: "/learner-settings"},
-    ];
-  // --- Fetch User ---
+    { icon: <FaScrewdriver />, label: "Settings", path: "/learner-settings" },
+    { icon: <FaCalendar />, label: "Calendar", path: "/learner/calendar" },
+  ];
+
+  // ---------------- Fetch User ----------------
   useEffect(() => {
     if (!user) return;
     const fetchUser = async () => {
@@ -135,14 +176,13 @@ export default function LearnerDashboard() {
     fetchUser();
   }, [user]);
 
-  // --- Fetch Courses ---
+  // ---------------- Fetch Courses ----------------
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, "enrollments"), where("studentId", "==", user.uid));
     const unsubscribe = onSnapshot(q, async snapshot => {
       const courseIds = snapshot.docs.map(d => d.data().courseId);
       if (!courseIds.length) return setEnrolledCourses([]);
-
       const courses = [];
       for (let i = 0; i < courseIds.length; i += 10) {
         const batch = courseIds.slice(i, i + 10);
@@ -157,7 +197,7 @@ export default function LearnerDashboard() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- Fetch Results ---
+  // ---------------- Fetch Results ----------------
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, "results"), where("userId", "==", user.uid), orderBy("takenAt", "desc"));
@@ -173,25 +213,32 @@ export default function LearnerDashboard() {
         resMap[data.courseId].total += data.score;
         resMap[data.courseId].count += 1;
       });
-      Object.keys(resMap).forEach(id => resMap[id] = Math.round(resMap[id].total / resMap[id].count));
+      Object.keys(resMap).forEach(id => (resMap[id] = Math.round(resMap[id].total / resMap[id].count)));
       setResults(resMap);
       setHistory(histMap);
     });
     return () => unsubscribe();
   }, [user]);
 
-  // --- Fetch Messages ---
+  // ---------------- Fetch Events ----------------
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "messages"), where("receiverId", "==", user.uid), orderBy("sentAt", "desc"));
+    const q = query(collection(db, "events"), where("studentIds", "array-contains", user.uid));
     const unsubscribe = onSnapshot(q, snapshot => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMessages(msgs);
+      const evs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          title: data.title,
+          start: data.date.toDate(),
+          type: data.type,
+        };
+      });
+      setEvents(evs);
     });
     return () => unsubscribe();
   }, [user]);
 
-  // --- Dark Mode & Profile Color ---
+  // ---------------- Dark Mode & Profile Color ----------------
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(darkMode));
     if (darkMode) document.documentElement.classList.add("dark");
@@ -204,6 +251,7 @@ export default function LearnerDashboard() {
     navigate("/login");
   };
 
+  // ---------------- Render ----------------
   return (
     <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
       {/* Sidebar */}
@@ -220,7 +268,11 @@ export default function LearnerDashboard() {
             {sidebarItems.map((item, idx) => (
               <button
                 key={idx}
-                onClick={() => { setActivePage(item.label); navigate(item.path); setSidebarOpen(false); }}
+                onClick={() => {
+                  setActivePage(item.label);
+                  navigate(item.path);
+                  setSidebarOpen(false);
+                }}
                 className={`flex items-center gap-3 w-full px-4 py-2 text-sm rounded-lg ${
                   activePage === item.label
                     ? "bg-blue-100 text-blue-600 font-semibold"
@@ -241,41 +293,93 @@ export default function LearnerDashboard() {
 
       {/* Main */}
       <main className="flex-1 p-6 overflow-y-auto">
-        {/* Mobile top bar */}
         <div className="flex items-center justify-between mb-6">
           <button className="md:hidden p-2 bg-blue-500 text-white rounded-lg" onClick={() => setSidebarOpen(true)}>
             <FaBars />
           </button>
         </div>
 
-        {profilePopup && <ProfilePopup user={formData} darkMode={darkMode} setDarkMode={setDarkMode} profileColor={profileColor} setProfileColor={setProfileColor} close={() => setProfilePopup(false)} />}
+        {profilePopup && (
+          <ProfilePopup user={formData} darkMode={darkMode} setDarkMode={setDarkMode} profileColor={profileColor} setProfileColor={setProfileColor} close={() => setProfilePopup(false)} />
+        )}
         {showLogoutPopup && <LogoutPopup onConfirm={handleLogout} onCancel={() => setShowLogoutPopup(false)} />}
 
-        {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl shadow mb-6 flex items-center justify-between">
+        {/* Render Calendar Page */}
+        {activePage === "Calendar" ? (
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">Welcome back, {formData.fullname?.split(" ")[0] || "User"} 👋</h1>
-            <p className="text-gray-500 dark:text-gray-300 mt-1">Here's your learning progress at a glance</p>
+            <h1 className="text-2xl font-bold mb-4 dark:text-white">📅 My Calendar</h1>
+            <Calendar
+              value={calendarDate}
+              onChange={setCalendarDate}
+              tileClassName={({ date, view }) =>
+                view === "month" && events.map(ev => ev.start.toDateString()).includes(date.toDateString())
+                  ? "bg-blue-500 text-white rounded-full"
+                  : null
+              }
+              className="rounded-lg shadow-lg w-full max-w-md"
+            />
+            <div className="mt-4">
+              {events
+                .filter(ev => ev.start.toDateString() === calendarDate.toDateString())
+                .map((ev, idx) => (
+                  <div key={idx} className="p-2 mb-2 rounded bg-blue-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                    <p className="font-medium">{ev.title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{ev.type}</p>
+                  </div>
+                ))}
+              {events.filter(ev => ev.start.toDateString() === calendarDate.toDateString()).length === 0 && (
+                <p className="text-gray-500 dark:text-gray-400 italic">No events</p>
+              )}
+            </div>
           </div>
-          <button style={{ backgroundColor: profileColor }} className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg" onClick={() => setProfilePopup(true)}>
-            {formData.fullname?.charAt(0).toUpperCase() || "U"}
-          </button>
-        </div>
+        ) : (
+          <>
+            {/* Welcome Header */}
+            <div className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl shadow mb-6 flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">
+                  Welcome back, {formData.fullname?.split(" ")[0] || "User"} 👋
+                </h1>
+                <p className="text-gray-500 dark:text-gray-300 mt-1">Here's your learning progress at a glance</p>
+              </div>
+              <button
+                style={{ backgroundColor: profileColor }}
+                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                onClick={() => setProfilePopup(true)}
+              >
+                {formData.fullname?.charAt(0).toUpperCase() || "U"}
+              </button>
+            </div>
 
-        {/* Stats */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <StatsCard title="Courses Enrolled" value={enrolledCourses.length} icon={<FaBook />} color="bg-blue-500" />
-          <StatsCard title="Average Quiz Score" value={Object.keys(results).length ? Math.round(Object.values(results).reduce((a,b) => a+b,0)/Object.keys(results).length) : 0} icon={<FaCheckSquare />} color="bg-pink-500" />
-          <StatsCard title="Quizzes Taken" value={Object.values(history).reduce((sum, arr) => sum + arr.length, 0)} icon={<FaTachometerAlt />} color="bg-green-500" />
-        </section>
+            {/* Stats */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <StatsCard title="Courses Enrolled" value={enrolledCourses.length} icon={<FaBook />} color="bg-blue-500" />
+              <StatsCard
+                title="Average Quiz Score"
+                value={Object.keys(results).length ? Math.round(Object.values(results).reduce((a, b) => a + b, 0) / Object.keys(results).length) : 0}
+                icon={<FaCheckSquare />}
+                color="bg-pink-500"
+              />
+              <StatsCard title="Quizzes Taken" value={Object.values(history).reduce((sum, arr) => sum + arr.length, 0)} icon={<FaTachometerAlt />} color="bg-green-500" />
+            </section>
 
-        {/* Courses */}
-        <section className="grid md:grid-cols-2 gap-6 mb-6">
-          {enrolledCourses.length === 0 && <p className="text-gray-600 dark:text-gray-300">You have not enrolled in any courses yet.</p>}
-          {enrolledCourses.map(course => (
-            <CourseCard key={course.id} course={course} avgScore={results[course.id] ?? 0} history={history[course.id] ?? []} expanded={expanded} onToggleExpand={id => setExpanded(prev => ({...prev, [id]: !prev[id]}))} onNavigate={navigate} />
-          ))}
-        </section>
+            {/* Courses */}
+            <section className="grid md:grid-cols-2 gap-6 mb-6">
+              {enrolledCourses.length === 0 && <p className="text-gray-600 dark:text-gray-300">You have not enrolled in any courses yet.</p>}
+              {enrolledCourses.map(course => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  avgScore={results[course.id] ?? 0}
+                  history={history[course.id] ?? []}
+                  expanded={expanded}
+                  onToggleExpand={id => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))}
+                  onNavigate={navigate}
+                />
+              ))}
+            </section>
+          </>
+        )}
       </main>
     </div>
   );
