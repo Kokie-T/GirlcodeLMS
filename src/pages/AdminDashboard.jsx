@@ -9,7 +9,7 @@ import CoursesManagement from "./ContentManagement";
 import SystemSettings from "./SystemSettings";
 import ReportsPage from "./Reports";
 import MessagesPage from "./MessagesPage";
-import AdminCalendar from "../pages/AdminCalendar"; // ✅ New calendar page
+import AdminCalendar from "../pages/AdminCalendar"; // Calendar page
 
 import {
   FaUsers,
@@ -23,8 +23,42 @@ import {
   FaCalendarAlt,
 } from "react-icons/fa";
 
-// Overlay and LogoutPopup remain the same...
-// ...
+// Overlay for modals
+const Overlay = ({ children, onClose }) => (
+  <div
+    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+    onClick={onClose}
+  >
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl p-6 w-96 shadow-lg"
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+    >
+      {children}
+    </div>
+  </div>
+);
+
+// Logout confirmation popup
+const LogoutPopup = ({ onConfirm, onCancel }) => (
+  <Overlay onClose={onCancel}>
+    <h2 className="text-lg font-semibold mb-4 dark:text-white">👋 Confirm Logout</h2>
+    <p className="mb-6 dark:text-gray-300">Are you sure you want to log out?</p>
+    <div className="flex justify-end gap-3">
+      <button
+        onClick={onCancel}
+        className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onConfirm}
+        className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition"
+      >
+        Logout
+      </button>
+    </div>
+  </Overlay>
+);
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -33,6 +67,7 @@ export default function AdminDashboard() {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const navigate = useNavigate();
 
+  // Get current admin email
   useEffect(() => {
     if (auth.currentUser) {
       setAdminEmail(auth.currentUser.email);
@@ -72,7 +107,7 @@ export default function AdminDashboard() {
         return <ReportsPage />;
       case "messages":
         return <MessagesPage />;
-      case "calendar": // ✅ New calendar tab
+      case "calendar":
         return <AdminCalendar />;
       case "settings":
         return <SystemSettings />;
@@ -93,6 +128,7 @@ export default function AdminDashboard() {
           <FaTimes />
         </button>
 
+        {/* Portal title */}
         <div className="text-center mb-8">
           <h1 className="text-xl font-bold">LMS Pro</h1>
           <h2 className="text-sm font-medium mt-1">Admin Portal</h2>
@@ -105,7 +141,7 @@ export default function AdminDashboard() {
           { key: "courses", icon: <FaBook />, label: "Courses" },
           { key: "messages", icon: <FaEnvelope />, label: "Messages" },
           { key: "reports", icon: <FaBook />, label: "Reports" },
-          { key: "calendar", icon: <FaCalendarAlt />, label: "Calendar" }, // ✅ Calendar button
+          { key: "calendar", icon: <FaCalendarAlt />, label: "Calendar" },
           { key: "settings", icon: <FaCog />, label: "Settings" },
         ].map((item) => (
           <button
@@ -123,6 +159,7 @@ export default function AdminDashboard() {
 
         <div className="flex-grow" />
 
+        {/* Logout button */}
         <button
           className="flex items-center gap-3 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition"
           onClick={() => setShowLogoutPopup(true)}
@@ -133,6 +170,7 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+        {/* Top header */}
         <div className="flex justify-between items-center bg-white shadow px-6 py-4">
           <h2 className="text-2xl font-bold capitalize">{activeTab}</h2>
           <div className="flex items-center gap-3">
@@ -150,9 +188,11 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Page Content */}
         <div className="p-6">{renderContent()}</div>
       </div>
 
+      {/* Logout popup */}
       {showLogoutPopup && <LogoutPopup onConfirm={handleLogout} onCancel={() => setShowLogoutPopup(false)} />}
     </div>
   );
