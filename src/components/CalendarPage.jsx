@@ -106,93 +106,97 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow space-y-6">
-      <h2 className="text-3xl font-semibold mb-6 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-xl shadow px-6 py-3">
+    <>
+      {/* Heading outside white container */}
+      <div className="max-w-4xl mx-auto p-6 mb-6 bg-gradient-to-r from-blue-400 to-pink-400 text-white rounded-xl shadow text-center text-3xl font-semibold">
         Calendar
-      </h2>
+      </div>
 
-      {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>
-      )}
+      {/* Main white container */}
+      <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow space-y-6">
+        {error && (
+          <div className="p-3 bg-red-100 text-red-700 rounded">{error}</div>
+        )}
 
-      <Calendar onChange={setDate} value={date} tileContent={tileContent} />
+        <Calendar onChange={setDate} value={date} tileContent={tileContent} />
 
-      <section className="mt-8">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-black">
-            Events on {date.toDateString()}
-          </h3>
-          <button
-            onClick={() => setAddingEvent(true)}
-            className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded shadow hover:opacity-90 transition"
-            aria-label="Add new event"
-          >
-             Add Event
-          </button>
-        </div>
-
-        {loading && <p className="text-gray-500 mt-2">Loading...</p>}
-
-        {addingEvent && (
-          <div className="mt-4 p-4 border rounded shadow-sm bg-gray-50 dark:bg-gray-800">
-            <label
-              htmlFor="newEvent"
-              className="block text-sm font-medium mb-1"
+        <section className="mt-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-black">
+              Events on {date.toDateString()}
+            </h3>
+            <button
+              onClick={() => setAddingEvent(true)}
+              className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded shadow hover:opacity-90 transition"
+              aria-label="Add new event"
             >
-              Event Title
-            </label>
-            <input
-              id="newEvent"
-              type="text"
-              value={newEventTitle}
-              onChange={(e) => setNewEventTitle(e.target.value)}
-              className="w-full rounded py-2 px-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white dark:bg-gray-700 dark:text-white"
-              placeholder="Enter event title"
-            />
-            <div className="flex space-x-4 mt-4">
-              <button
-                onClick={addEvent}
-                disabled={loading || !newEventTitle.trim()}
-                className="bg-pink-600 text-white px-4 py-2 rounded shadow hover:bg-pink-700 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  setAddingEvent(false);
-                  setNewEventTitle("");
-                }}
-                className="bg-gray-400 text-white px-4 py-2 rounded shadow hover:bg-gray-500"
-              >
-                Cancel
-              </button>
-            </div>
+              Add Event
+            </button>
           </div>
-        )}
 
-        {!loading && selectedDateEvents.length === 0 && !addingEvent && (
-          <p className="mt-4 text-gray-500">No events</p>
-        )}
-        {!loading && selectedDateEvents.length > 0 && (
-          <ul className="mt-4 space-y-2">
-            {selectedDateEvents.map((event) => (
-              <li
-                key={event.id}
-                className="flex justify-between items-center border-b pb-2"
+          {loading && <p className="text-gray-500 mt-2">Loading...</p>}
+
+          {addingEvent && (
+            <div className="mt-4 p-4 border rounded shadow-sm bg-gray-50 dark:bg-gray-800">
+              <label
+                htmlFor="newEvent"
+                className="block text-sm font-medium mb-1"
               >
-                <span className="dark:text-gray-200">{event.title}</span>
+                Event Title
+              </label>
+              <input
+                id="newEvent"
+                type="text"
+                value={newEventTitle}
+                onChange={(e) => setNewEventTitle(e.target.value)}
+                className="w-full rounded py-2 px-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white dark:bg-gray-700 dark:text-white"
+                placeholder="Enter event title"
+              />
+              <div className="flex space-x-4 mt-4">
                 <button
-                  onClick={() => deleteEvent(event.id)}
-                  className="text-red-600 hover:text-red-800 px-2 rounded"
-                  aria-label={`Delete event ${event.title}`}
+                  onClick={addEvent}
+                  disabled={loading || !newEventTitle.trim()}
+                  className="bg-pink-600 text-white px-4 py-2 rounded shadow hover:bg-pink-700 disabled:opacity-50"
                 >
-                  ❌
+                  Save
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+                <button
+                  onClick={() => {
+                    setAddingEvent(false);
+                    setNewEventTitle("");
+                  }}
+                  className="bg-gray-400 text-white px-4 py-2 rounded shadow hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!loading && selectedDateEvents.length === 0 && !addingEvent && (
+            <p className="mt-4 text-gray-500">No events</p>
+          )}
+          {!loading && selectedDateEvents.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {selectedDateEvents.map((event) => (
+                <li
+                  key={event.id}
+                  className="flex justify-between items-center border-b pb-2"
+                >
+                  <span className="dark:text-gray-200">{event.title}</span>
+                  <button
+                    onClick={() => deleteEvent(event.id)}
+                    className="text-red-600 hover:text-red-800 px-2 rounded"
+                    aria-label={`Delete event ${event.title}`}
+                  >
+                    ❌
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

@@ -102,10 +102,10 @@ const Dashboard = ({ setActivePage }) => {
     .sort((a, b) => b.timestamp - a.timestamp);
 
   const stats = [
-    { number: totalStudents, label: "Total Students", icon: <FaUsers />, color: "text-pink-600" },
-    { number: pendingGrades, label: "Pending Grades", icon: <FaCheckSquare />, color: "text-pink-600" },
-    { number: activeCourses, label: "Active Courses", icon: <FaBook />, color: "text-pink-600" },
-    { number: messages, label: "Messages", icon: <FaEnvelope />, color: "text-pink-600" },
+    { number: totalStudents, label: "Total Students", icon: <FaUsers />, color: "text-black" },
+    { number: pendingGrades, label: "Pending Grades", icon: <FaCheckSquare />, color: "text-black" },
+    { number: activeCourses, label: "Active Courses", icon: <FaBook />, color: "text-black" },
+    { number: messages, label: "Messages", icon: <FaEnvelope />, color: "text-black" },
   ];
 
   const quickActions = [

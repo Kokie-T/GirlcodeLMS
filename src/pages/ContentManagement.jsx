@@ -109,7 +109,7 @@ export default function CourseManagement() {
           onChange={(e) => setNewCategory(e.target.value)}
           className="px-3 py-2 border rounded-md"
         />
-        <button className="bg-blue-500 text-white px-4 py-2 rounded-md">Add</button>
+        <button className="bg-black text-white px-4 py-2 rounded-md">Add</button>
       </form>
 
       {/* Search */}
