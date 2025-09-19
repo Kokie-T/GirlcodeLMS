@@ -21,6 +21,12 @@ export default function MessagesPage() {
   const [searchUser, setSearchUser] = useState("");
   const currentUser = auth.currentUser;
 
+  // 🔹 Helper to get full name
+  const getFullName = (user) => {
+    if (!user) return "";
+    return `${user.firstName || ""} ${user.lastName || ""}`.trim();
+  };
+
   // 🔹 Load conversations in real-time
   useEffect(() => {
     if (!currentUser) return;
@@ -122,13 +128,15 @@ export default function MessagesPage() {
     setSelectedConvo(newConvo);
   };
 
-  // 🔹 Display participant name & role instead of email
+  // 🔹 Display participant full name & role instead of email
   const formatParticipants = (participants) => {
     return participants
       .filter((p) => p !== currentUser.email)
       .map((email) => {
         const user = users.find((u) => u.email === email);
-        return user ? `${user.name} (${user.role})` : email;
+        return user
+          ? `${getFullName(user)} (${user.role})`
+          : email;
       })
       .join(", ");
   };
@@ -139,7 +147,7 @@ export default function MessagesPage() {
       <div className="md:w-1/3 bg-white rounded-xl shadow p-4 overflow-y-auto h-[calc(100vh-32px)]">
         <h2 className="text-xl font-bold text-gray-700 mb-4">📨 Conversations</h2>
 
-        {/* 🔍 User dropdown */}
+        {/* 🔍 User search */}
         <input
           type="text"
           placeholder="Search user..."
@@ -157,12 +165,13 @@ export default function MessagesPage() {
             .filter(
               (u) =>
                 u.email !== currentUser.email &&
-                (u.name?.toLowerCase().includes(searchUser.toLowerCase()) ||
-                  u.role?.toLowerCase().includes(searchUser.toLowerCase()))
+                (`${getFullName(u)} ${u.role}`
+                  .toLowerCase()
+                  .includes(searchUser.toLowerCase()))
             )
             .map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} ({u.role})
+                {getFullName(u)} ({u.role})
               </option>
             ))}
         </select>

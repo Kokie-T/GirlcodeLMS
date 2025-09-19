@@ -14,12 +14,14 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  const [newUserName, setNewUserName] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("student");
 
   const [editingUserId, setEditingUserId] = useState(null);
-  const [editingName, setEditingName] = useState("");
+  const [editingFirstName, setEditingFirstName] = useState("");
+  const [editingLastName, setEditingLastName] = useState("");
   const [editingEmail, setEditingEmail] = useState("");
   const [editingRole, setEditingRole] = useState("");
 
@@ -33,9 +35,10 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
-  // Filter users by name/email and role
+  // Filter users
   const filteredUsers = users.filter((user) => {
-    const matchesName = user.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const fullName = `${user.firstName || ""} ${user.lastName || ""}`.toLowerCase();
+    const matchesName = fullName.includes(searchTerm.toLowerCase());
     const matchesEmail = user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole =
       roleFilter === "all" ||
@@ -46,20 +49,28 @@ export default function UserManagement() {
   // Add new user
   const handleAddUser = async (e) => {
     e.preventDefault();
-    if (!newUserName.trim() || !newUserEmail.trim()) return;
+    if (!newFirstName.trim() || !newLastName.trim() || !newUserEmail.trim()) return;
 
     try {
       const docRef = await addDoc(collection(db, "users"), {
-        name: newUserName,
+        firstName: newFirstName,
+        lastName: newLastName,
         email: newUserEmail,
         role: newUserRole,
         status: "Active",
       });
       setUsers([
-        { id: docRef.id, name: newUserName, email: newUserEmail, role: newUserRole },
+        {
+          id: docRef.id,
+          firstName: newFirstName,
+          lastName: newLastName,
+          email: newUserEmail,
+          role: newUserRole,
+        },
         ...users,
       ]);
-      setNewUserName("");
+      setNewFirstName("");
+      setNewLastName("");
       setNewUserEmail("");
       setNewUserRole("student");
       alert("User added successfully!");
@@ -85,7 +96,8 @@ export default function UserManagement() {
   // Start editing
   const startEditing = (user) => {
     setEditingUserId(user.id);
-    setEditingName(user.name);
+    setEditingFirstName(user.firstName || "");
+    setEditingLastName(user.lastName || "");
     setEditingEmail(user.email);
     setEditingRole(user.role);
   };
@@ -95,14 +107,21 @@ export default function UserManagement() {
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, {
-        name: editingName,
+        firstName: editingFirstName,
+        lastName: editingLastName,
         email: editingEmail,
         role: editingRole,
       });
       setUsers(
         users.map((u) =>
           u.id === userId
-            ? { ...u, name: editingName, email: editingEmail, role: editingRole }
+            ? {
+                ...u,
+                firstName: editingFirstName,
+                lastName: editingLastName,
+                email: editingEmail,
+                role: editingRole,
+              }
             : u
         )
       );
@@ -117,10 +136,13 @@ export default function UserManagement() {
   // Cancel editing
   const cancelEdit = () => {
     setEditingUserId(null);
-    setEditingName("");
+    setEditingFirstName("");
+    setEditingLastName("");
     setEditingEmail("");
     setEditingRole("");
   };
+
+  const getFullName = (user) => `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
@@ -130,9 +152,16 @@ export default function UserManagement() {
       <form onSubmit={handleAddUser} className="flex flex-col md:flex-row gap-2 mb-6">
         <input
           type="text"
-          placeholder="Name"
-          value={newUserName}
-          onChange={(e) => setNewUserName(e.target.value)}
+          placeholder="First Name"
+          value={newFirstName}
+          onChange={(e) => setNewFirstName(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <input
+          type="text"
+          placeholder="Last Name"
+          value={newLastName}
+          onChange={(e) => setNewLastName(e.target.value)}
           className="flex-1 px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <input
@@ -189,15 +218,21 @@ export default function UserManagement() {
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold text-lg">
-                {user.name?.charAt(0).toUpperCase() || "U"}
+                {getFullName(user).charAt(0) || "U"}
               </div>
 
               {editingUserId === user.id ? (
                 <div className="flex-1">
                   <input
                     type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
+                    value={editingFirstName}
+                    onChange={(e) => setEditingFirstName(e.target.value)}
+                    className="w-full px-2 py-1 border rounded-md mb-1"
+                  />
+                  <input
+                    type="text"
+                    value={editingLastName}
+                    onChange={(e) => setEditingLastName(e.target.value)}
                     className="w-full px-2 py-1 border rounded-md mb-1"
                   />
                   <input
@@ -218,14 +253,14 @@ export default function UserManagement() {
                 </div>
               ) : (
                 <div>
-                  <h4 className="font-semibold text-gray-700">{user.name}</h4>
+                  <h4 className="font-semibold text-gray-700">{getFullName(user)}</h4>
                   <p className="text-sm text-gray-500 capitalize">{user.role}</p>
                   <p className="text-xs text-gray-400">{user.email}</p>
                 </div>
               )}
             </div>
 
-            {/* Edit / Delete / Save / Cancel buttons inside the card */}
+            {/* Edit / Delete / Save / Cancel buttons */}
             <div className="flex gap-2 mt-2">
               {editingUserId === user.id ? (
                 <>

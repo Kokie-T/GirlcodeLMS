@@ -40,7 +40,7 @@ export default function SignUpPage() {
   };
 
   const getPasswordStrength = () => {
-    if (password.length === 0) return { label: "", color: "" };
+    if (password.length === 0) return { label: "", color: "", value: 0 };
     if (password.length < 6) return { label: "Weak", color: "red", value: 33 };
     if (password.match(/[A-Z]/) && password.match(/[0-9]/) && password.length >= 8)
       return { label: "Strong", color: "green", value: 100 };
@@ -73,27 +73,25 @@ export default function SignUpPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-       email: formData.email,
-        role: "student", // or "Facilitator" / "Admin"
-       createdAt: new Date(),
-      });
-
-      // 2. Send email verification
-      await sendEmailVerification(user);
+      // 2. Split full name into first + last
+      const [firstName, ...lastNameParts] = fullName.trim().split(" ");
+      const lastName = lastNameParts.join(" ");
 
       // 3. Store user details in Firestore
       await setDoc(doc(db, "users", user.uid), {
-        fullName,
+        firstName,
+        lastName,
         email,
-        role: "student",   // default role
+        role: "student",  // default role
         createdAt: new Date(),
       });
 
-      // 4. Redirect to success page with credentials
+      // 4. Send email verification
+      await sendEmailVerification(user);
+
+      // 5. Redirect to success page with credentials
       navigate("/signup-success", {
-        state: { fullName, email, password }
+        state: { firstName, lastName, email }
       });
 
     } catch (err) {

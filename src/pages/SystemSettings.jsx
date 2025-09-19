@@ -1,236 +1,209 @@
-import React, { useState, useEffect } from "react";
-import { auth, db, storage } from "../firebase";
-import { updateProfile, updatePassword } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import React, { useState } from "react";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import AIAssistant from "../components/AIAssistant";
+import { auth, db } from "../firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
+import { useTheme } from "../context/ThemeContext";
 
-export default function SystemSettings() {
-  const user = auth.currentUser;
+export default function AdminSettings() {
+  const [openSection, setOpenSection] = useState(null);
+  const [showAssistant, setShowAssistant] = useState(false);
 
-  const [name, setName] = useState("");
-  const [avatarURL, setAvatarURL] = useState("");
-  const [theme, setTheme] = useState("light");
-  const [notifications, setNotifications] = useState(true);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
 
-  const themeOptions = [
-    { label: "Light", value: "light" },
-    { label: "Dark", value: "dark" },
-    { label: "Blue", value: "blue" },
-    { label: "Green", value: "green" },
-    { label: "Purple", value: "purple" },
-    { label: "Red", value: "red" },
-  ];
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [inAppNotif, setInAppNotif] = useState(true);
+  const [notifFrequency, setNotifFrequency] = useState("Instant");
 
-  // Load user data
-  useEffect(() => {
-    if (!user) return;
+  const { theme, toggleDarkMode, setCustomTheme } = useTheme();
 
-    const fetchUser = async () => {
-      try {
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setName(data.name || "");
-          setAvatarURL(data.avatarURL || "");
-          setTheme(data.theme || "light");
-          setNotifications(data.notifications ?? true);
-          applyTheme(data.theme || "light");
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchUser();
-  }, [user]);
-
-  // Apply theme dynamically
-  const applyTheme = (themeName) => {
-    document.documentElement.className = ""; // reset
-    document.documentElement.classList.add(`theme-${themeName}`);
+  const toggleSection = (section) => {
+    setOpenSection(openSection === section ? null : section);
   };
 
-  // Save profile changes
-  const handleProfileSave = async () => {
-    if (!user) return;
-    setLoading(true);
-    setMessage("");
+  // Update Profile
+  const handleUpdateProfile = async () => {
+    if (!auth.currentUser) return alert("No user logged in!");
 
     try {
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { name, theme, notifications });
-
-      await updateProfile(user, { displayName: name });
-
-      applyTheme(theme);
-
-      setMessage("Profile updated successfully!");
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      await updateDoc(userRef, { fullName, email });
+      alert("✅ Profile updated successfully!");
     } catch (err) {
-      console.error(err);
-      setMessage("Failed to update profile.");
-    } finally {
-      setLoading(false);
+      alert("❌ Error updating profile: " + err.message);
     }
   };
 
-  // Upload avatar
-  const handleAvatarUpload = async (e) => {
-    if (!user) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const storageRef = ref(storage, `avatars/${user.uid}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setAvatarURL(url);
-
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { avatarURL: url });
-
-      await updateProfile(user, { photoURL: url });
-
-      setMessage("Avatar uploaded successfully!");
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to upload avatar.");
-    } finally {
-      setLoading(false);
-    }
+  // Reset Password
+  const handlePasswordReset = () => {
+    if (!auth.currentUser?.email) return alert("No email found!");
+    sendPasswordResetEmail(auth, auth.currentUser.email)
+      .then(() => alert("✅ Password reset email sent!"))
+      .catch((err) => alert("❌ " + err.message));
   };
 
-  // Change password
-  const handlePasswordChange = async () => {
-    setMessage("");
-    if (newPassword !== confirmPassword) {
-      setMessage("Passwords do not match!");
-      return;
-    }
-    if (!newPassword) return;
-
-    setLoading(true);
+  // Save Notifications
+  const handleSaveNotifications = async () => {
+    if (!auth.currentUser) return;
     try {
-      await updatePassword(user, newPassword);
-      setNewPassword("");
-      setConfirmPassword("");
-      setMessage("Password updated successfully!");
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      await updateDoc(userRef, {
+        notifications: { email: emailNotif, inApp: inAppNotif, frequency: notifFrequency },
+      });
+      alert("✅ Notifications updated!");
     } catch (err) {
-      console.error(err);
-      setMessage("Failed to update password. You may need to re-login.");
-    } finally {
-      setLoading(false);
+      alert("❌ Error: " + err.message);
     }
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold mb-6">System Settings</h2>
+    <div className="space-y-6">
+      <h3 className="text-2xl font-bold">⚙️ Admin Settings</h3>
 
-      {message && (
-        <div className="mb-4 px-4 py-2 rounded-xl bg-blue-100 text-blue-700">{message}</div>
-      )}
-
-      {/* Profile Section */}
-      <div className="bg-white shadow rounded-xl p-6 mb-6">
-        <h3 className="text-xl font-semibold mb-4">Profile</h3>
-        <div className="flex items-center gap-4 mb-4">
-          <img
-            src={avatarURL || "/default-avatar.png"}
-            alt="Avatar"
-            className="w-16 h-16 rounded-full object-cover border"
-          />
-          <input type="file" onChange={handleAvatarUpload} />
-        </div>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
-          className="w-full mb-4 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div className="flex justify-end">
-          <button
-            onClick={handleProfileSave}
-            disabled={loading}
-            className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition"
-          >
-            Save Profile
-          </button>
-        </div>
+      {/* Profile */}
+      <div className="bg-gray-50 rounded-xl shadow">
+        <button
+          className="w-full flex justify-between items-center p-4 font-semibold"
+          onClick={() => toggleSection("profile")}
+        >
+          Profile & Account {openSection === "profile" ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+        {openSection === "profile" && (
+          <div className="p-4 space-y-3 border-t">
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full p-2 border rounded-lg"
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2 border rounded-lg"
+            />
+            <button onClick={handleUpdateProfile} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+              Update Profile
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Password Section */}
-      <div className="bg-white shadow rounded-xl p-6 mb-6">
-        <h3 className="text-xl font-semibold mb-4">Change Password</h3>
-        <input
-          type="password"
-          placeholder="New password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          className="w-full mb-2 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <input
-          type="password"
-          placeholder="Confirm password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full mb-4 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div className="flex justify-end">
-          <button
-            onClick={handlePasswordChange}
-            disabled={loading}
-            className="bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 transition"
-          >
-            Update Password
-          </button>
-        </div>
+      {/* Notifications */}
+      <div className="bg-gray-50 rounded-xl shadow">
+        <button
+          className="w-full flex justify-between items-center p-4 font-semibold"
+          onClick={() => toggleSection("notifications")}
+        >
+          Notifications {openSection === "notifications" ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+        {openSection === "notifications" && (
+          <div className="p-4 space-y-3 border-t">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={emailNotif} onChange={(e) => setEmailNotif(e.target.checked)} />
+              Email Notifications
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={inAppNotif} onChange={(e) => setInAppNotif(e.target.checked)} />
+              In-App Notifications
+            </label>
+            <label className="block">
+              Notification Frequency
+              <select
+                className="w-full p-2 border rounded-lg mt-1"
+                value={notifFrequency}
+                onChange={(e) => setNotifFrequency(e.target.value)}
+              >
+                <option>Instant</option>
+                <option>Daily</option>
+                <option>Weekly Digest</option>
+              </select>
+            </label>
+            <button onClick={handleSaveNotifications} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+              Save Preferences
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Preferences */}
-      <div className="bg-white shadow rounded-xl p-6 mb-6 flex flex-col gap-4">
-        <h3 className="text-xl font-semibold mb-2">Preferences</h3>
-        <div className="flex items-center justify-between">
-          <span>Enable Notifications</span>
-          <input
-            type="checkbox"
-            checked={notifications}
-            onChange={() => setNotifications(!notifications)}
-            className="w-5 h-5"
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Theme</span>
-          <select
-            value={theme}
-            onChange={(e) => {
-              setTheme(e.target.value);
-              applyTheme(e.target.value);
-            }}
-            className="px-3 py-2 border rounded-xl"
-          >
-            {themeOptions.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Appearance */}
+      <div className="bg-gray-50 rounded-xl shadow">
+        <button
+          className="w-full flex justify-between items-center p-4 font-semibold"
+          onClick={() => toggleSection("appearance")}
+        >
+          Appearance {openSection === "appearance" ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+        {openSection === "appearance" && (
+          <div className="p-4 space-y-3 border-t">
+            <label className="block">
+              Theme
+              <select
+                className="w-full p-2 border rounded-lg mt-1"
+                value={theme}
+                onChange={(e) => setCustomTheme(e.target.value)}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+              </select>
+            </label>
+            <button onClick={toggleDarkMode} className="px-4 py-2 bg-gray-800 text-white rounded-lg">
+              Toggle Dark Mode
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Help Section */}
-      <div className="bg-white shadow rounded-xl p-6 mb-6">
-        <h3 className="text-xl font-semibold mb-4">Help</h3>
-        <p className="text-gray-600 mb-2">
-          For assistance, visit our <a href="/contact" className="text-blue-500 underline">FAQ</a> or contact support@lmspro.com.
-        </p>
+      {/* Privacy */}
+      <div className="bg-gray-50 rounded-xl shadow">
+        <button
+          className="w-full flex justify-between items-center p-4 font-semibold"
+          onClick={() => toggleSection("privacy")}
+        >
+          Privacy & Security {openSection === "privacy" ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+        {openSection === "privacy" && (
+          <div className="p-4 space-y-3 border-t">
+            <button
+              onClick={() => {
+                if (!auth.currentUser?.email) return alert("No email found!");
+                sendPasswordResetEmail(auth, auth.currentUser.email)
+                  .then(() => alert("✅ Password reset email sent!"))
+                  .catch((err) => alert("❌ " + err.message));
+              }}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg"
+            >
+              Reset Password
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Support */}
+      <div className="bg-gray-50 rounded-xl shadow">
+        <button
+          className="w-full flex justify-between items-center p-4 font-semibold"
+          onClick={() => toggleSection("support")}
+        >
+          Support & Help {openSection === "support" ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+        {openSection === "support" && (
+          <div className="p-4 space-y-3 border-t">
+            <button
+              className="px-4 py-2 bg-green-500 text-white rounded-lg"
+              onClick={() => setShowAssistant(!showAssistant)}
+            >
+              {showAssistant ? "Close AI Assistant" : "Open AI Assistant"}
+            </button>
+            {showAssistant && <AIAssistant />}
+          </div>
+        )}
       </div>
     </div>
   );
