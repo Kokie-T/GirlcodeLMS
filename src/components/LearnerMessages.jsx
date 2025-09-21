@@ -163,7 +163,7 @@ export default function LearnerMessages() {
         } md:translate-x-0 fixed md:static inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200 ease-in-out z-50`}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
-          <h1 className="text-lg font-bold text-gray-800 dark:text-white">Learner</h1>
+          <h1 className="text-lg font-bold text-gray-800 dark:text-white">Student Portal</h1>
           <button
             onClick={() => setSidebarOpen(false)}
             className="md:hidden text-gray-600 dark:text-gray-300"

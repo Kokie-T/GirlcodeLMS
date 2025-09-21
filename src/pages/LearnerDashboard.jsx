@@ -262,7 +262,7 @@ export default function LearnerDashboard() {
           </button>
           <h2 className="text-xl font-bold text-center py-6 border-b dark:border-gray-700 dark:text-white">
             LMS Pro <br />
-            <span className="text-sm text-gray-500 dark:text-gray-300">Learner Portal</span>
+            <span className="text-sm text-gray-500 dark:text-gray-300">Student Portal</span>
           </h2>
           <nav className="mt-6 space-y-2">
             {sidebarItems.map((item, idx) => (
