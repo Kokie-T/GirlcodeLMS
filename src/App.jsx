@@ -36,6 +36,7 @@ import CalendarPage from "./components/CalendarPage";
 import LearnerMessages from "./components/LearnerMessages";
 import SidebarCalendar from "./components/SidebarCalender";
 import SignupSuccess from './pages/SignupSuccess';
+import LearnerSidebar from './components/LearnerSidebar';
 
 function AppContent() {
   const location = useLocation();
@@ -76,7 +77,7 @@ function AppContent() {
         <Route path="/materials" element={<LearningMaterialsPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/learner/calendar" element={<SidebarCalendar />} />
-
+        <Route path="/learnersidebar" element={<LearnerSidebar />} />
         {/* ✅ Add Learner Messages route */}
         <Route path="/learner/messages" element={<LearnerMessages />} />
       </Routes>

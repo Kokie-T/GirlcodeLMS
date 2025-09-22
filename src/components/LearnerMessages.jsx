@@ -1,6 +1,6 @@
-// src/components/LearnerMessages.jsx
+// src/pages/LearnerMessages.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import {
   collection,
@@ -14,41 +14,38 @@ import {
   getDoc,
   getDocs,
 } from "firebase/firestore";
-import {
-  FaTachometerAlt,
-  FaBook,
-  FaEnvelope,
-  FaCalendar,
-  FaScrewdriver,
-  FaSignOutAlt,
-  FaBars,
-  FaTimes,
-} from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import LearnerSidebar from "../components/LearnerSidebar";
+import { FaBars } from "react-icons/fa";
+import { format } from "date-fns";
 
 export default function LearnerMessages() {
   const auth = getAuth();
-  const navigate = useNavigate();
-
   const [user, setUser] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [facilitators, setFacilitators] = useState([]);
   const [selectedFacilitator, setSelectedFacilitator] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePage, setActivePage] = useState("Messages");
+  const [darkMode, setDarkMode] = useState(
+    JSON.parse(localStorage.getItem("darkMode")) || false
+  );
 
   const facilitatorsRef = useRef([]);
+  const messagesEndRef = useRef(null);
 
-  // 🔹 Track logged-in learner
+  // Scroll to bottom whenever messages change
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) setUser(u);
-      else navigate("/login");
-    });
-    return () => unsubscribe();
-  }, [auth, navigate]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  // 🔹 Fetch facilitators
+  // Track logged-in learner
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u || null));
+    return () => unsubscribe();
+  }, [auth]);
+
+  // Fetch facilitators
   useEffect(() => {
     const fetchFacilitators = async () => {
       const facQ = query(collection(db, "users"), where("role", "==", "Facilitator"));
@@ -60,7 +57,7 @@ export default function LearnerMessages() {
     fetchFacilitators();
   }, []);
 
-  // 🔹 Listen for conversations + messages
+  // Listen for conversations and messages
   useEffect(() => {
     if (!user) return;
 
@@ -89,7 +86,6 @@ export default function LearnerMessages() {
       const allFacIds = allConversations
         .flatMap((c) => c.participants)
         .filter((id) => id !== user.uid);
-
       const uniqueFacIds = [
         ...new Set([...facilitatorsRef.current.map((f) => f.id), ...allFacIds]),
       ];
@@ -100,8 +96,7 @@ export default function LearnerMessages() {
           if (existing) return existing;
           const docRef = doc(db, "users", id);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) return { id, ...docSnap.data() };
-          return { id, fullname: id };
+          return docSnap.exists() ? { id, ...docSnap.data() } : { id, fullname: id };
         })
       );
 
@@ -112,7 +107,7 @@ export default function LearnerMessages() {
     return () => unsub();
   }, [user, selectedFacilitator]);
 
-  // 🔹 Send message
+  // Send message
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedFacilitator || !user) return;
 
@@ -143,144 +138,113 @@ export default function LearnerMessages() {
     setNewMessage("");
   };
 
-  // 🔹 Sidebar items
-  const sidebarItems = [
-    { icon: <FaTachometerAlt />, label: "Dashboard", path: "/learner-dashboard" },
-    { icon: <FaBook />, label: "My Courses", path: "/courses" },
-    { icon: <FaEnvelope />, label: "Messages", path: "/learner/messages" },
-    { icon: <FaCalendar />, label: "Calendar", path: "/learner/calendar" },
-    { icon: <FaScrewdriver />, label: "Settings", path: "/learner-settings" },
-  ];
+  if (!user) return <p className="p-6">Loading messages...</p>;
 
-  if (!user) return <p>Loading messages...</p>;
+  // Group messages by date
+  const groupedMessages = messages.reduce((acc, msg) => {
+    const dateStr = msg.timestamp?.toDate
+      ? format(msg.timestamp.toDate(), "yyyy-MM-dd")
+      : format(new Date(), "yyyy-MM-dd");
+    if (!acc[dateStr]) acc[dateStr] = [];
+    acc[dateStr].push(msg);
+    return acc;
+  }, {});
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <aside
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 fixed md:static inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-200 ease-in-out z-50`}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700">
-          <h1 className="text-lg font-bold text-gray-800 dark:text-white">Student Portal</h1>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="md:hidden text-gray-600 dark:text-gray-300"
-          >
-            <FaTimes />
-          </button>
-        </div>
-        <nav className="mt-4">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                location.pathname === item.path ? "bg-gray-200 dark:bg-gray-700 font-semibold" : ""
-              }`}
-            >
-              <span className="mr-3">{item.icon}</span>
-              {item.label}
-            </button>
+    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+  <LearnerSidebar
+    sidebarOpen={sidebarOpen}
+    setSidebarOpen={setSidebarOpen}
+    activePage={activePage}
+    setActivePage={setActivePage}
+    darkMode={darkMode}
+  />
+
+  <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+    {/* Header Card */}
+    <div className="max-w-3xl mx-auto mb-6 p-6 bg-white text-black rounded-xl shadow text-center">
+      <h1 className="text-2xl font-extrabold"> My Messages</h1>
+    </div>
+
+    {/* Main Card */}
+    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow space-y-6">
+      
+      {/* Facilitator Selector */}
+      <div>
+        <select
+          value={selectedFacilitator?.id || ""}
+          onChange={(e) => {
+            const fac = facilitators.find((f) => f.id === e.target.value);
+            setSelectedFacilitator(fac || null);
+          }}
+          className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-400 dark:bg-gray-800"
+        >
+          <option value="">Select a facilitator...</option>
+          {facilitators.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.fullname || f.name || f.email || f.id}
+            </option>
           ))}
-        </nav>
-        <button
-          onClick={() => signOut(auth)}
-          className="w-full flex items-center px-4 py-3 text-red-600 hover:bg-red-100 dark:hover:bg-red-900 mt-auto"
-        >
-          <FaSignOutAlt className="mr-3" /> Logout
-        </button>
-      </aside>
+        </select>
+      </div>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-6">
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="md:hidden mb-4 p-2 bg-gray-200 dark:bg-gray-700 rounded"
-        >
-          <FaBars />
-        </button>
-
-        {/* Page Title */}
-        <div className="p-4 bg-gradient-to-r from-blue-300 to-pink-300 text-white rounded-lg shadow mb-6">
-          <h2 className="text-xl font-semibold">📩 Learner Messages</h2>
-        </div>
-
-        {/* Facilitator Dropdown */}
-        <div className="mb-4">
-          <select
-            value={selectedFacilitator?.id || ""}
-            onChange={(e) => {
-              const fac = facilitators.find((f) => f.id === e.target.value);
-              setSelectedFacilitator(fac || null);
-            }}
-            className="w-full p-2 rounded border dark:border-gray-600 text-gray-800"
-          >
-            <option value="">Select a facilitator...</option>
-            {facilitators.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.fullname || f.name || f.email || f.id}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Chat Panel */}
-        <div className="flex flex-col h-[70vh] bg-gray-100 rounded-lg shadow p-4">
-          {selectedFacilitator ? (
-            <>
-              <div className="flex-1 overflow-y-auto border rounded-lg p-4 mb-3 bg-white shadow">
-                {messages.length > 0 ? (
-                  messages.map((msg) => (
+      {/* Chat Panel */}
+      <div className="flex flex-col h-[500px]">
+        {selectedFacilitator ? (
+          <>
+            <div className="flex-1 overflow-y-auto border rounded-lg p-4 mb-3 bg-gray-50 dark:bg-gray-800">
+              {messages.length > 0 ? (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`mb-3 flex ${
+                      msg.senderId === user.uid ? "justify-end" : "justify-start"
+                    }`}
+                  >
                     <div
-                      key={msg.id}
-                      className={`mb-3 flex ${
-                        msg.senderId === user.uid ? "justify-end" : "justify-start"
+                      className={`max-w-xs px-4 py-2 rounded-xl shadow ${
+                        msg.senderId === user.uid
+                          ? "bg-gradient-to-r from-blue-300 to-pink-300 text-white"
+                          : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
                       }`}
                     >
-                      <div
-                        className={`max-w-xs px-4 py-2 rounded-xl shadow ${
-                          msg.senderId === user.uid
-                            ? "bg-gradient-to-r from-blue-300 to-pink-300 text-white"
-                            : "bg-gray-200"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold">{msg.senderName}</p>
-                        <p>{msg.text}</p>
-                      </div>
+                      <p className="text-sm font-semibold">{msg.senderName}</p>
+                      <p>{msg.text}</p>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500">
-                    No messages yet with this facilitator.
-                  </p>
-                )}
-              </div>
-              <div className="flex">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 border rounded-lg p-2 focus:ring focus:ring-blue-300"
-                />
-                <button
-                  onClick={sendMessage}
-                  className="ml-2 bg-gradient-to-r from-blue-300 to-pink-300 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
-                >
-                  Send
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center flex-1 text-gray-500">
-              Select a facilitator to start chatting.
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">
+                  No messages yet with this facilitator.
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      </main>
+
+            <div className="flex">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 border rounded-lg p-3 focus:ring-2 focus:ring-blue-300 dark:bg-gray-800 dark:text-white"
+              />
+              <button
+                onClick={sendMessage}
+                className="ml-2 bg-gradient-to-r from-blue-300 to-pink-300 text-white px-4 py-2 rounded-lg shadow hover:opacity-90 transition"
+              >
+                Send
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center flex-1 text-gray-500 dark:text-gray-400">
+            Select a facilitator to start chatting.
+          </div>
+        )}
+      </div>
     </div>
+  </main>
+</div>
+
   );
 }

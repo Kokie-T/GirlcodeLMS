@@ -1,23 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, signOut } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
-import {
-  doc,
-  getDocs,
-  collection,
-  query,
-  where,
-  orderBy,
-} from "firebase/firestore";
-import {
-  HiOutlineHome,
-  HiOutlineBookOpen,
-  HiOutlineUser,
-  HiOutlineLogout,
-  HiMenu,
-  HiX,
-} from "react-icons/hi";
+import { doc, getDocs, collection, query, where, orderBy } from "firebase/firestore";
+import LearnerSidebar from "../components/LearnerSidebar";
 
 export default function MyCourses() {
   const navigate = useNavigate();
@@ -30,22 +16,13 @@ export default function MyCourses() {
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Sidebar state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-  const menuItems = [
-    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
-    { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Help", icon: <HiOutlineUser />, path: "/help" },
-  ];
-
   // Fetch courses & results
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
       try {
+        // Fetch enrollments
         const enrollmentQuery = query(
           collection(db, "enrollments"),
           where("studentId", "==", user.uid)
@@ -80,6 +57,7 @@ export default function MyCourses() {
         }
         setCourses(enrolledCourses);
 
+        // Fetch results
         const resultsQuery = query(
           collection(db, "results"),
           where("userId", "==", user.uid),
@@ -122,92 +100,20 @@ export default function MyCourses() {
     fetchData();
   }, [user]);
 
-  const confirmLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/login");
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
+  const handleLogout = async () => {
+    await auth.signOut();
+    navigate("/login");
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 w-64 bg-white shadow flex flex-col justify-between transform transition-transform duration-300 z-50 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-8 text-center py-6 border-b">
-            My LMS
-          </h2>
-          <nav className="flex flex-col px-3 space-y-2">
-            {menuItems.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  navigate(item.path);
-                  setSidebarOpen(false);
-                }}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:scale-105 transition transform duration-200"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.name}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-4 border-t">
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
-          >
-            <HiOutlineLogout /> Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile toggle */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
-        {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
-      </button>
-
-      {/* Logout confirmation */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Confirm Logout
-            </h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Shared Sidebar */}
+      <LearnerSidebar onLogout={handleLogout} />
 
       {/* Main content */}
-      <div className="flex-1 p-6 md:ml-64">
-        <header className="bg-white p-6 rounded-xl mb-8 shadow-sm text-center">
-          <h1 className="text-3xl font-bold text-gray-800">My Courses</h1>
+      <main className="flex-1 p-6 md:ml-64">
+        <header className="bg-white dark:bg-gray-800 p-6 rounded-xl mb-8 shadow text-center">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Courses</h1>
         </header>
 
         {loading ? (
@@ -216,7 +122,7 @@ export default function MyCourses() {
           </div>
         ) : courses.length === 0 ? (
           <div className="text-center">
-            <p className="text-gray-600 mb-3">
+            <p className="text-gray-600 dark:text-gray-300 mb-3">
               You have not enrolled in any courses yet.
             </p>
             <button
@@ -237,10 +143,10 @@ export default function MyCourses() {
               return (
                 <div
                   key={course.id}
-                  className="bg-white rounded-xl shadow-lg p-6 transition hover:shadow-xl"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition hover:shadow-xl"
                 >
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                       {course.title}
                     </h3>
                     <button
@@ -258,11 +164,11 @@ export default function MyCourses() {
 
                   {/* Progress bar */}
                   <div className="mb-4">
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-1">
                       <span>Progress</span>
                       <span>{Math.min(contentProgress + avgScore, 100)}%</span>
                     </div>
-                    <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden relative">
+                    <div className="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
                       <div
                         className="absolute left-0 top-0 h-4 bg-blue-500 transition-all duration-700"
                         style={{ width: `${contentProgress}%` }}
@@ -272,7 +178,7 @@ export default function MyCourses() {
                         style={{ width: `${avgScore}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                       <span>Content</span>
                       <span>Quiz Avg</span>
                     </div>
@@ -287,16 +193,16 @@ export default function MyCourses() {
 
                   {/* History */}
                   {isExpanded && (
-                    <div className="mt-4 bg-gray-50 p-3 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-gray-700">
+                    <div className="mt-4 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
+                      <h4 className="font-semibold mb-2 text-gray-700 dark:text-gray-300">
                         Past Quiz Attempts
                       </h4>
                       {courseHistory.length > 0 ? (
-                        <ul className="space-y-2 text-sm text-gray-700">
+                        <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                           {courseHistory.map((attempt, idx) => (
                             <li
                               key={idx}
-                              className="flex justify-between border-b border-gray-200 pb-1"
+                              className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1"
                             >
                               <span>
                                 Attempt {courseHistory.length - idx}
@@ -322,7 +228,7 @@ export default function MyCourses() {
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           No quiz attempts yet.
                         </p>
                       )}
@@ -333,7 +239,7 @@ export default function MyCourses() {
             })}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

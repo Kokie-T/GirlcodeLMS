@@ -12,6 +12,8 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import LearnerSidebar from "../components/LearnerSidebar";
+import { FaBars } from "react-icons/fa";
 
 const QuizViewer = () => {
   const { courseId } = useParams();
@@ -25,6 +27,10 @@ const QuizViewer = () => {
 
   const auth = getAuth();
   const user = auth.currentUser;
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePage, setActivePage] = useState("Quiz");
+  const [darkMode, setDarkMode] = useState(JSON.parse(localStorage.getItem("darkMode")) || false);
 
   // Fetch quiz
   useEffect(() => {
@@ -44,7 +50,6 @@ const QuizViewer = () => {
         setLoading(false);
       }
     };
-
     fetchQuiz();
   }, [courseId]);
 
@@ -65,12 +70,11 @@ const QuizViewer = () => {
         console.error("Error fetching attempts:", err);
       }
     };
-
     fetchAttempts();
   }, [user, courseId]);
 
   const handleSelect = (questionIndex, option) => {
-    if (submitted) return; // prevent changing answers after submission
+    if (submitted) return;
     setAnswers((prev) => ({ ...prev, [questionIndex]: option }));
   };
 
@@ -105,101 +109,122 @@ const QuizViewer = () => {
     return <p className="p-6 text-gray-600">No quiz available for this course.</p>;
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Course Quiz</h2>
+    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+      <LearnerSidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        activePage={activePage}
+        setActivePage={setActivePage}
+        darkMode={darkMode}
+      />
 
-      {submitted && (
-        <div className="bg-green-100 p-6 rounded-lg shadow mb-6">
-          <h3 className="text-xl font-semibold text-green-700">Quiz Completed!</h3>
-          <p className="text-gray-700 mt-2">
-            You scored <span className="font-bold">{score}%</span>
-          </p>
-
-          {attempts.length > 0 && (
-            <div className="mt-4">
-              <h4 className="font-semibold text-gray-800 mb-2">Past Attempts</h4>
-              <ul className="space-y-1 text-gray-700 text-sm">
-                {attempts.map((a, idx) => (
-                  <li key={idx} className="flex justify-between border-b border-gray-200 pb-1">
-                    <span>Attempt {attempts.length - idx}</span>
-                    <span>
-                      {a.score}% -{" "}
-                      {a.takenAt?.toDate
-                        ? a.takenAt.toDate().toLocaleString([], { hour12: true })
-                        : new Date().toLocaleString([], { hour12: true })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
-        }}
-      >
-        {questions.map((q, idx) => (
-          <div key={idx} className="mb-6 p-4 bg-white rounded-lg shadow">
-            <p className="font-medium text-gray-800 mb-2">
-              {idx + 1}. {q.text}
-            </p>
-            <div className="space-y-2">
-              {q.options.map((opt, i) => {
-                let bgColor = "bg-white border-gray-300";
-
-                if (submitted) {
-                  if (opt === q.correctAnswer) bgColor = "bg-green-100 border-green-400";
-                  else if (answers[idx] === opt && opt !== q.correctAnswer)
-                    bgColor = "bg-red-100 border-red-400";
-                } else if (answers[idx] === opt) {
-                  bgColor = "bg-blue-100 border-blue-400";
-                }
-
-                return (
-                  <label
-                    key={i}
-                    className={`block p-2 border rounded-lg cursor-pointer ${bgColor} font-medium`}
-                  >
-                    <input
-                      type="radio"
-                      name={`question-${idx}`}
-                      value={opt}
-                      checked={answers[idx] === opt}
-                      onChange={() => handleSelect(idx, opt)}
-                      className="hidden"
-                      disabled={submitted}
-                    />
-                    {opt}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        {!submitted && (
+      <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-3 rounded-lg hover:opacity-90 transition"
+            className="md:hidden p-2 bg-blue-500 text-white rounded-lg"
+            onClick={() => setSidebarOpen(true)}
           >
-            Submit Quiz
+            <FaBars />
           </button>
-        )}
+          <h1 className="text-2xl font-bold dark:text-white">📝 Course Quiz</h1>
+        </div>
 
         {submitted && (
-          <button
-            type="button"
-            onClick={() => navigate("/courses")}
-            className="mt-2 w-full bg-blue-500 text-white py-3 rounded-lg hover:opacity-90 transition"
-          >
-            Back to Courses
-          </button>
+          <div className="bg-green-100 p-6 rounded-lg shadow mb-6">
+            <h3 className="text-xl font-semibold text-green-700">Quiz Completed!</h3>
+            <p className="text-gray-700 mt-2">
+              You scored <span className="font-bold">{score}%</span>
+            </p>
+
+            {attempts.length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-800 mb-2">Past Attempts</h4>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  {attempts.map((a, idx) => (
+                    <li
+                      key={idx}
+                      className="flex justify-between border-b border-gray-200 pb-1"
+                    >
+                      <span>Attempt {attempts.length - idx}</span>
+                      <span>
+                        {a.score}% -{" "}
+                        {a.takenAt?.toDate
+                          ? a.takenAt.toDate().toLocaleString([], { hour12: true })
+                          : new Date().toLocaleString([], { hour12: true })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
-      </form>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          {questions.map((q, idx) => (
+            <div key={idx} className="mb-6 p-4 bg-white rounded-lg shadow">
+              <p className="font-medium text-gray-800 mb-2">
+                {idx + 1}. {q.text}
+              </p>
+              <div className="space-y-2">
+                {q.options.map((opt, i) => {
+                  let bgColor = "bg-white border-gray-300";
+
+                  if (submitted) {
+                    if (opt === q.correctAnswer) bgColor = "bg-green-100 border-green-400";
+                    else if (answers[idx] === opt && opt !== q.correctAnswer)
+                      bgColor = "bg-red-100 border-red-400";
+                  } else if (answers[idx] === opt) {
+                    bgColor = "bg-blue-100 border-blue-400";
+                  }
+
+                  return (
+                    <label
+                      key={i}
+                      className={`block p-2 border rounded-lg cursor-pointer ${bgColor} font-medium`}
+                    >
+                      <input
+                        type="radio"
+                        name={`question-${idx}`}
+                        value={opt}
+                        checked={answers[idx] === opt}
+                        onChange={() => handleSelect(idx, opt)}
+                        className="hidden"
+                        disabled={submitted}
+                      />
+                      {opt}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {!submitted && (
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-400 to-pink-400 text-white py-3 rounded-lg hover:opacity-90 transition"
+            >
+              Submit Quiz
+            </button>
+          )}
+
+          {submitted && (
+            <button
+              type="button"
+              onClick={() => navigate("/courses")}
+              className="mt-2 w-full bg-blue-500 text-white py-3 rounded-lg hover:opacity-90 transition"
+            >
+              Back to Courses
+            </button>
+          )}
+        </form>
+      </main>
     </div>
   );
 };

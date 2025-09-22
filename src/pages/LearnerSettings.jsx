@@ -1,300 +1,179 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { getAuth, updatePassword, updateEmail, signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import {
-  HiOutlineHome,
-  HiOutlineBookOpen,
-  HiOutlineUser,
-  HiOutlineLogout,
-  HiMenu,
-  HiX,
-} from "react-icons/hi";
-import { FaUserCircle } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import LearnerSidebar from "../components/LearnerSidebar";
+import { getAuth, updateProfile, updatePassword } from "firebase/auth";
+import { FaUserCircle, FaSun, FaMoon, FaLock, FaCamera } from "react-icons/fa";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../firebase";
 
 export default function LearnerSettings() {
-  const navigate = useNavigate();
   const auth = getAuth();
   const user = auth.currentUser;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [avatar, setAvatar] = useState(null);
-  const [formData, setFormData] = useState({
-    fullname: "",
-    email: "",
-    password: "",
-  });
-  const [message, setMessage] = useState({ type: "", text: "" });
-  const avatarInputRef = useRef(null);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [darkMode, setDarkMode] = useState(
+    JSON.parse(localStorage.getItem("darkMode")) || false
+  );
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const [newPassword, setNewPassword] = useState("");
+  const [msg, setMsg] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(user?.photoURL || "");
+  const [uploading, setUploading] = useState(false);
 
-  // Sidebar items (logout separate at bottom)
-  const menuItems = [
-    { name: "Dashboard", icon: <HiOutlineHome />, path: "/learner-dashboard" },
-    { name: "My Courses", icon: <HiOutlineBookOpen />, path: "/courses" },
-    { name: "Help", icon: <HiOutlineUser />, path: "/help" },
-  ];
-
-  // Fetch user profile
   useEffect(() => {
-    if (!user) return;
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
 
-    const fetchProfile = async () => {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        setFormData({
-          fullname: data.fullname || "",
-          email: data.email || user.email,
-          password: "",
-        });
-        setAvatar(data.avatar || null);
-      }
-    };
-
-    fetchProfile();
-  }, [user]);
-
-  // Handle avatar upload
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !user) return;
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64String = reader.result;
-      setAvatar(base64String);
-
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { avatar: base64String });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Handle input changes
-  const handleInputChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  // Save profile updates
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-
+  // Update Display Name
+  const handleNameChange = async () => {
+    if (!displayName.trim()) return;
     try {
-      const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, { fullname: formData.fullname });
-
-      // Update email if changed
-      if (formData.email !== user.email) {
-        await updateEmail(user, formData.email);
-      }
-
-      // Update password if provided
-      if (formData.password) {
-        await updatePassword(user, formData.password);
-      }
-
-      setMessage({ type: "success", text: "Profile updated successfully!" });
-      setFormData((prev) => ({ ...prev, password: "" })); // clear password field
+      await updateProfile(user, { displayName, photoURL: avatarUrl });
+      setMsg("Profile updated successfully!");
     } catch (err) {
-      console.error("Error updating profile:", err);
-      setMessage({
-        type: "error",
-        text: err.message || "Failed to update profile",
-      });
+      console.error(err);
+      setMsg("Failed to update profile.");
     }
   };
 
-  // Logout
-  const confirmLogout = async () => {
+  // Update Password
+  const handlePasswordChange = async () => {
+    if (!newPassword.trim()) return;
     try {
-      await signOut(auth);
-      navigate("/login");
+      await updatePassword(user, newPassword);
+      setMsg("Password updated successfully!");
+      setNewPassword("");
     } catch (err) {
-      console.error("Logout failed:", err);
-      setMessage({ type: "error", text: "Logout failed. Try again." });
+      console.error(err);
+      setMsg("Failed to update password.");
+    }
+  };
+
+  // Upload Avatar
+  const handleAvatarUpload = async (e) => {
+    if (!e.target.files[0]) return;
+    const file = e.target.files[0];
+    const storageRef = ref(storage, `avatars/${user.uid}-${file.name}`);
+    setUploading(true);
+    try {
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setAvatarUrl(url);
+      await updateProfile(user, { photoURL: url });
+      setMsg("Avatar updated successfully!");
+    } catch (err) {
+      console.error(err);
+      setMsg("Failed to upload avatar.");
+    } finally {
+      setUploading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg flex flex-col justify-between transform transition-transform duration-300 z-50 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
-        <div>
-          <h2 className="text-2xl font-bold text-center py-6 border-b text-gray-800">
-            LMS Pro <br />
-            <span className="text-sm text-gray-500">Learner Portal</span>
+    <div className={`flex min-h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+      <LearnerSidebar sidebarOpen={false} darkMode={darkMode} />
+
+      <main className="flex-1 p-6 md:ml-64 space-y-6">
+        {/* Page Header */}
+        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-xl shadow text-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Settings</h1>
+        </div>
+
+        {/* Profile Card */}
+        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <FaUserCircle /> Profile
           </h2>
-          <nav className="mt-6 flex flex-col gap-3 px-3">
-            {menuItems.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  navigate(item.path);
-                  setSidebarOpen(false);
-                }}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:scale-105 transition transform duration-200"
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.name}
-              </button>
-            ))}
-          </nav>
-        </div>
 
-        <div className="p-4 border-t">
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg"
-          >
-            <HiOutlineLogout /> Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Logout Confirmation */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Confirm Logout
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to log out?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
+          <div className="flex flex-col items-center space-y-4">
+            {/* Avatar */}
+            <div className="relative">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Profile Avatar"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+                />
+              ) : (
+                <FaUserCircle className="w-24 h-24 text-gray-400" />
+              )}
+              <label className="absolute bottom-0 right-0 bg-blue-500 p-1 rounded-full cursor-pointer hover:bg-blue-600">
+                <FaCamera className="text-white w-4 h-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
+
+            {/* Name Input */}
+            <div className="w-full space-y-2">
+              <label className="block text-gray-700 dark:text-gray-300">Name</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-gray-50 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            {/* Email (readonly) */}
+            <div className="w-full space-y-2">
+              <label className="block text-gray-700 dark:text-gray-300">Email</label>
+              <input
+                type="text"
+                value={user?.email || ""}
+                disabled
+                className="w-full rounded-lg border px-3 py-2 bg-gray-100 dark:bg-gray-700 dark:text-gray-300"
+              />
+            </div>
+
+            <button
+              onClick={handleNameChange}
+              disabled={uploading}
+              className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
+            >
+              Save Profile
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Mobile toggle */}
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-      >
-        {sidebarOpen ? <HiX size={20} /> : <HiMenu size={20} />}
-      </button>
-
-      {/* Main Content */}
-      <div className="flex-1 p-6 md:ml-64">
-        <header className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl mb-8 shadow-sm text-center">
-          <h1 className="text-3xl font-bold text-gray-800">
-            Update Profile
-          </h1>
-        </header>
-
-        <form
-          onSubmit={handleUpdateProfile}
-          className="bg-white rounded-xl shadow-lg p-8 space-y-6 max-w-xl mx-auto"
-        >
-          {/* Avatar */}
-          <div className="flex flex-col items-center">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt="Avatar"
-                className="w-28 h-28 rounded-full object-cover border-4 border-pink-200 shadow-md cursor-pointer"
-                onClick={() => avatarInputRef.current.click()}
-              />
-            ) : (
-              <FaUserCircle
-                size={96}
-                className="text-pink-300 cursor-pointer"
-                onClick={() => avatarInputRef.current.click()}
-              />
-            )}
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
+        {/* Theme Toggle Card */}
+        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-xl shadow flex items-center justify-between">
+          <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
+            {darkMode ? <FaMoon /> : <FaSun />} Dark Mode
           </div>
+          <input
+            type="checkbox"
+            checked={darkMode}
+            onChange={() => setDarkMode(!darkMode)}
+            className="w-6 h-6 accent-pink-500"
+          />
+        </div>
 
-          {/* Full Name */}
-          <div>
-            <label className="block mb-2 font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="fullname"
-              value={formData.fullname}
-              onChange={handleInputChange}
-              placeholder="Your full name"
-              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block mb-2 font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="you@example.com"
-              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-              required
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block mb-2 font-medium text-gray-700">
-              New Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              placeholder="Enter new password"
-              className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-            />
-          </div>
-
-          {/* Inline Feedback */}
-          {message.text && (
-            <p
-              className={`text-sm ${
-                message.type === "success" ? "text-green-600" : "text-red-500"
-              }`}
-            >
-              {message.text}
-            </p>
-          )}
-
+        {/* Change Password Card */}
+        <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <FaLock /> Change Password
+          </h2>
+          <input
+            type="password"
+            placeholder="New Password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-gray-50 dark:bg-gray-700 dark:text-white"
+          />
           <button
-            type="submit"
-            className="w-full py-3 bg-gradient-to-r from-blue-200 to-pink-200 text-gray-800 font-semibold rounded-xl shadow hover:scale-105 transition"
+            onClick={handlePasswordChange}
+            className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
           >
-            Update Profile
+            Update Password
           </button>
-        </form>
-      </div>
+          {msg && <p className="text-sm text-gray-700 dark:text-gray-300">{msg}</p>}
+        </div>
+      </main>
     </div>
   );
 }

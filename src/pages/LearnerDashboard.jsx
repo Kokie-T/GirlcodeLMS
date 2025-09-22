@@ -1,25 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { getAuth, signOut } from "firebase/auth";
-import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import {
-  FaTachometerAlt,
-  FaBook,
-  FaEnvelope,
-  FaSignOutAlt,
-  FaBars,
-  FaTimes,
-  FaCheckSquare,
-  FaScrewdriver,
-  FaCalendar,
-} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { FaBook, FaCheckSquare, FaTachometerAlt, FaBars } from "react-icons/fa";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import LearnerSidebar from "../components/LearnerSidebar";
 
-// ---------- Reusable Cards ----------
+// ---------- Stats Card ----------
 const StatsCard = ({ title, value, icon, color }) => (
-  <div className={`flex items-center p-4 rounded-xl shadow hover:shadow-xl transition-transform transform hover:-translate-y-1 bg-white dark:bg-gray-800`}>
+  <div className="flex items-center p-4 rounded-xl shadow hover:shadow-xl bg-white dark:bg-gray-800">
     <div className={`p-3 rounded-full ${color} text-white mr-4 text-xl`}>{icon}</div>
     <div>
       <h4 className="text-gray-500 dark:text-gray-300 text-sm">{title}</h4>
@@ -95,47 +86,42 @@ const CourseCard = ({ course, avgScore, history, expanded, onToggleExpand, onNav
   );
 };
 
-// ---------- Overlay ----------
-const Overlay = ({ children, onClose }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative" onClick={e => e.stopPropagation()}>
-      {children}
+// ---------- Profile Popup ----------
+const ProfilePopup = ({ formData, setFormData, darkMode, setDarkMode, profileColor, setProfileColor, userId, close }) => {
+  const handleSave = async () => {
+    await updateDoc(doc(db, "users", userId), {
+      fullname: formData.fullname,
+      darkMode,
+      profileColor,
+    });
+    close();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 relative" onClick={(e) => e.stopPropagation()}>
+        <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}>×</button>
+        <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
+        <label className="block mb-2 dark:text-white">Full Name</label>
+        <input
+          type="text"
+          value={formData.fullname}
+          onChange={(e) => setFormData({ ...formData, fullname: e.target.value })}
+          className="w-full p-2 mb-4 border rounded dark:bg-gray-700 dark:text-white"
+        />
+        <label className="flex items-center gap-2 mb-4 dark:text-white">
+          <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} /> Dark Mode
+        </label>
+        <label className="flex items-center gap-2 mb-4 dark:text-white">
+          Avatar Color: <input type="color" value={profileColor} onChange={(e) => setProfileColor(e.target.value)} />
+        </label>
+        <button onClick={handleSave} className="bg-blue-500 text-white px-4 py-2 rounded hover:opacity-90">Save</button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const ProfilePopup = ({ user, darkMode, setDarkMode, profileColor, setProfileColor, close }) => (
-  <Overlay onClose={close}>
-    <button className="absolute top-2 right-2 text-gray-500 dark:text-gray-200" onClick={close}>×</button>
-    <h2 className="text-lg font-semibold mb-4 dark:text-white">Update Profile</h2>
-    <input
-      type="text"
-      value={user.fullname}
-      readOnly
-      className="w-full p-2 mb-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-    />
-    <label className="flex items-center gap-2 mb-4 dark:text-white">
-      <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} /> Dark Mode
-    </label>
-    <label className="flex items-center gap-2 mb-4 dark:text-white">
-      Avatar Color: <input type="color" value={profileColor} onChange={e => setProfileColor(e.target.value)} />
-    </label>
-    <button onClick={close} className="bg-blue-500 text-white px-4 py-2 rounded hover:opacity-90">Save</button>
-  </Overlay>
-);
-
-const LogoutPopup = ({ onConfirm, onCancel }) => (
-  <Overlay onClose={onCancel}>
-    <h2 className="text-lg font-semibold mb-4 dark:text-white">Confirm Logout</h2>
-    <p className="mb-6 dark:text-gray-300">Are you sure you want to log out?</p>
-    <div className="flex justify-end gap-3">
-      <button onClick={onCancel} className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 dark:text-white">Cancel</button>
-      <button onClick={onConfirm} className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600">Logout</button>
-    </div>
-  </Overlay>
-);
-
-// ---------- LearnerDashboard ----------
+// ---------- Learner Dashboard ----------
 export default function LearnerDashboard() {
   const navigate = useNavigate();
   const auth = getAuth();
@@ -143,102 +129,35 @@ export default function LearnerDashboard() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState("Dashboard");
-  const [formData, setFormData] = useState({ fullname: "", email: "" });
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [formData, setFormData] = useState({ fullname: "", email: "", avatar: "" });
+  const [enrolledCourses, setEnrolledCourses] = useState(null); // null = fetching
   const [results, setResults] = useState({});
   const [history, setHistory] = useState({});
   const [expanded, setExpanded] = useState({});
   const [profilePopup, setProfilePopup] = useState(false);
-  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [darkMode, setDarkMode] = useState(JSON.parse(localStorage.getItem("darkMode")) || false);
-  const [profileColor, setProfileColor] = useState(localStorage.getItem("profileColor") || "#4F46E5");
+  const [profileColor, setProfileColor] = useState(localStorage.getItem("profileColor") || "#e546c5ff");
   const [events, setEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
 
-  const sidebarItems = [
-    { icon: <FaTachometerAlt />, label: "Dashboard", path: "/learner-dashboard" },
-    { icon: <FaBook />, label: "My Courses", path: "/courses" },
-    { icon: <FaEnvelope />, label: "Messages", path: "/learner/messages" },
-    { icon: <FaScrewdriver />, label: "Settings", path: "/learner-settings" },
-    { icon: <FaCalendar />, label: "Calendar", path: "/learner/calendar" },
-  ];
-
-  // ---------------- Fetch User ----------------
+  // Fetch user data
   useEffect(() => {
     if (!user) return;
     const fetchUser = async () => {
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
         const data = snap.data();
-        setFormData({ fullname: data.fullname || "", email: data.email || user.email });
+        setFormData({
+          fullname: data.fullname || "",
+          email: data.email || user.email,
+          avatar: data.avatar || "",
+        });
       }
     };
     fetchUser();
   }, [user]);
 
-  // ---------------- Fetch Courses ----------------
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "enrollments"), where("studentId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, async snapshot => {
-      const courseIds = snapshot.docs.map(d => d.data().courseId);
-      if (!courseIds.length) return setEnrolledCourses([]);
-      const courses = [];
-      for (let i = 0; i < courseIds.length; i += 10) {
-        const batch = courseIds.slice(i, i + 10);
-        const batchDocs = await Promise.all(batch.map(id => getDoc(doc(db, "courses", id))));
-        batchDocs.forEach(docSnap => {
-          const enrollmentData = snapshot.docs.find(e => e.data().courseId === docSnap.id)?.data();
-          courses.push({ id: docSnap.id, title: docSnap.data()?.title || "Untitled", progress: enrollmentData?.progress || 0 });
-        });
-      }
-      setEnrolledCourses(courses);
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  // ---------------- Fetch Results ----------------
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "results"), where("userId", "==", user.uid), orderBy("takenAt", "desc"));
-    const unsubscribe = onSnapshot(q, snapshot => {
-      const resMap = {};
-      const histMap = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const takenAt = data.takenAt?.toDate?.() || new Date();
-        if (!histMap[data.courseId]) histMap[data.courseId] = [];
-        histMap[data.courseId].push({ score: data.score, date: takenAt });
-        if (!resMap[data.courseId]) resMap[data.courseId] = { total: 0, count: 0 };
-        resMap[data.courseId].total += data.score;
-        resMap[data.courseId].count += 1;
-      });
-      Object.keys(resMap).forEach(id => (resMap[id] = Math.round(resMap[id].total / resMap[id].count)));
-      setResults(resMap);
-      setHistory(histMap);
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  // ---------------- Fetch Events ----------------
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "events"), where("studentIds", "array-contains", user.uid));
-    const unsubscribe = onSnapshot(q, snapshot => {
-      const evs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          title: data.title,
-          start: data.date.toDate(),
-          type: data.type,
-        };
-      });
-      setEvents(evs);
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  // ---------------- Dark Mode & Profile Color ----------------
+  // Dark mode
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(darkMode));
     if (darkMode) document.documentElement.classList.add("dark");
@@ -246,139 +165,156 @@ export default function LearnerDashboard() {
   }, [darkMode]);
   useEffect(() => localStorage.setItem("profileColor", profileColor), [profileColor]);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/login");
-  };
+  // Fetch enrolled courses
+  useEffect(() => {
+    if (!user) return;
 
-  // ---------------- Render ----------------
+    const q = query(collection(db, "enrollments"), where("studentId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        setEnrolledCourses([]); // truly no courses
+        return;
+      }
+
+      const courses = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          const courseRef = await getDoc(doc(db, "courses", data.courseId));
+          return {
+            id: courseRef.id,
+            title: courseRef.exists() ? courseRef.data().title : "Untitled",
+            progress: data.progress || 0,
+          };
+        })
+      );
+
+      setEnrolledCourses(courses);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  if (!user) return null;
+
   return (
-    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div className="flex h-screen">
       {/* Sidebar */}
-      <aside className={`fixed md:static top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg flex flex-col justify-between transition-transform duration-300 z-50 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        <div>
-          <button className="md:hidden p-4 self-end text-xl" onClick={() => setSidebarOpen(false)}>
-            <FaTimes className={darkMode ? "text-white" : ""} />
-          </button>
-          <h2 className="text-xl font-bold text-center py-6 border-b dark:border-gray-700 dark:text-white">
-            LMS Pro <br />
-            <span className="text-sm text-gray-500 dark:text-gray-300">Student Portal</span>
-          </h2>
-          <nav className="mt-6 space-y-2">
-            {sidebarItems.map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setActivePage(item.label);
-                  navigate(item.path);
-                  setSidebarOpen(false);
-                }}
-                className={`flex items-center gap-3 w-full px-4 py-2 text-sm rounded-lg ${
-                  activePage === item.label
-                    ? "bg-blue-100 text-blue-600 font-semibold"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                {item.icon} {item.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="p-4 border-t dark:border-gray-700">
-          <button onClick={() => setShowLogoutPopup(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-lg">
-            <FaSignOutAlt /> Logout
-          </button>
-        </div>
-      </aside>
+      <LearnerSidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        darkMode={darkMode}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
 
-      {/* Main */}
-      <main className="flex-1 p-6 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <button className="md:hidden p-2 bg-blue-500 text-white rounded-lg" onClick={() => setSidebarOpen(true)}>
+      {/* Main Content */}
+      <main className={`flex-1 p-6 overflow-y-auto transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-0"} md:ml-64`}>
+        {/* Mobile toggle */}
+        <div className="flex items-center justify-between mb-6 md:hidden">
+          <button className="p-2 bg-blue-500 text-white rounded-lg" onClick={() => setSidebarOpen(true)}>
             <FaBars />
           </button>
         </div>
 
+        {/* Profile Popup */}
         {profilePopup && (
-          <ProfilePopup user={formData} darkMode={darkMode} setDarkMode={setDarkMode} profileColor={profileColor} setProfileColor={setProfileColor} close={() => setProfilePopup(false)} />
+          <ProfilePopup
+            formData={formData}
+            setFormData={setFormData}
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            profileColor={profileColor}
+            setProfileColor={setProfileColor}
+            userId={user.uid}
+            close={() => setProfilePopup(false)}
+          />
         )}
-        {showLogoutPopup && <LogoutPopup onConfirm={handleLogout} onCancel={() => setShowLogoutPopup(false)} />}
 
-        {/* Render Calendar Page */}
-        {activePage === "Calendar" ? (
-          <div>
-            <h1 className="text-2xl font-bold mb-4 dark:text-white">📅 My Calendar</h1>
+        {/* Dashboard Header */}
+        {activePage !== "Calendar" && (
+          <div className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl shadow mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">
+                Welcome back, {formData.fullname?.split(" ")[0] || "User"} 👋
+              </h1>
+              <p className="text-gray-500 dark:text-gray-300 mt-1">Here's your learning progress at a glance</p>
+            </div>
+            <button
+              onClick={() => setProfilePopup(true)}
+              className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden"
+              style={{ backgroundColor: profileColor }}
+            >
+              {formData.avatar ? (
+                <img src={formData.avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-lg">{formData.fullname?.charAt(0) || "U"}</span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Stats */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <StatsCard title="Courses Enrolled" value={enrolledCourses?.length || 0} icon={<FaBook />} color="bg-blue-500" />
+          <StatsCard
+            title="Average Quiz Score"
+            value={Object.keys(results).length ? Math.round(Object.values(results).reduce((a, b) => a + b, 0) / Object.keys(results).length) : 0}
+            icon={<FaCheckSquare />}
+            color="bg-pink-500"
+          />
+          <StatsCard
+            title="Quizzes Taken"
+            value={Object.values(history).reduce((sum, arr) => sum + arr.length, 0)}
+            icon={<FaTachometerAlt />}
+            color="bg-green-500"
+          />
+        </section>
+
+        {/* Courses */}
+        <section className="grid md:grid-cols-2 gap-6 mb-6">
+          {enrolledCourses?.length === 0 && (
+            <p className="text-gray-600 dark:text-gray-300">You have not enrolled in any courses yet.</p>
+          )}
+
+          {enrolledCourses?.map(course => (
+            <CourseCard
+              key={course.id}
+              course={course}
+              avgScore={results[course.id] ?? 0}
+              history={history[course.id] ?? []}
+              expanded={expanded}
+              onToggleExpand={id => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))}
+              onNavigate={navigate}
+            />
+          ))}
+        </section>
+
+        {/* Calendar */}
+        {activePage === "Calendar" && (
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold mb-4 dark:text-white text-center">📅 My Calendar</h1>
             <Calendar
               value={calendarDate}
               onChange={setCalendarDate}
+              className="rounded-lg shadow-lg w-full"
               tileClassName={({ date, view }) =>
-                view === "month" && events.map(ev => ev.start.toDateString()).includes(date.toDateString())
+                view === "month" && events.map((ev) => ev.start.toDateString()).includes(date.toDateString())
                   ? "bg-blue-500 text-white rounded-full"
                   : null
               }
-              className="rounded-lg shadow-lg w-full max-w-md"
             />
-            <div className="mt-4">
-              {events
-                .filter(ev => ev.start.toDateString() === calendarDate.toDateString())
-                .map((ev, idx) => (
-                  <div key={idx} className="p-2 mb-2 rounded bg-blue-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                    <p className="font-medium">{ev.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{ev.type}</p>
-                  </div>
-                ))}
-              {events.filter(ev => ev.start.toDateString() === calendarDate.toDateString()).length === 0 && (
+            <div className="mt-4 space-y-2">
+              {events.filter((ev) => ev.start.toDateString() === calendarDate.toDateString()).map((ev, idx) => (
+                <div key={idx} className="p-3 rounded bg-blue-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                  <p className="font-medium">{ev.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{ev.type}</p>
+                </div>
+              ))}
+              {events.filter((ev) => ev.start.toDateString() === calendarDate.toDateString()).length === 0 && (
                 <p className="text-gray-500 dark:text-gray-400 italic">No events</p>
               )}
             </div>
           </div>
-        ) : (
-          <>
-            {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-blue-100 to-pink-100 p-6 rounded-xl shadow mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-white">
-                  Welcome back, {formData.fullname?.split(" ")[0] || "User"} 👋
-                </h1>
-                <p className="text-gray-500 dark:text-gray-300 mt-1">Here's your learning progress at a glance</p>
-              </div>
-              <button
-                style={{ backgroundColor: profileColor }}
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-                onClick={() => setProfilePopup(true)}
-              >
-                {formData.fullname?.charAt(0).toUpperCase() || "U"}
-              </button>
-            </div>
-
-            {/* Stats */}
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <StatsCard title="Courses Enrolled" value={enrolledCourses.length} icon={<FaBook />} color="bg-blue-500" />
-              <StatsCard
-                title="Average Quiz Score"
-                value={Object.keys(results).length ? Math.round(Object.values(results).reduce((a, b) => a + b, 0) / Object.keys(results).length) : 0}
-                icon={<FaCheckSquare />}
-                color="bg-pink-500"
-              />
-              <StatsCard title="Quizzes Taken" value={Object.values(history).reduce((sum, arr) => sum + arr.length, 0)} icon={<FaTachometerAlt />} color="bg-green-500" />
-            </section>
-
-            {/* Courses */}
-            <section className="grid md:grid-cols-2 gap-6 mb-6">
-              {enrolledCourses.length === 0 && <p className="text-gray-600 dark:text-gray-300">You have not enrolled in any courses yet.</p>}
-              {enrolledCourses.map(course => (
-                <CourseCard
-                  key={course.id}
-                  course={course}
-                  avgScore={results[course.id] ?? 0}
-                  history={history[course.id] ?? []}
-                  expanded={expanded}
-                  onToggleExpand={id => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))}
-                  onNavigate={navigate}
-                />
-              ))}
-            </section>
-          </>
         )}
       </main>
     </div>
