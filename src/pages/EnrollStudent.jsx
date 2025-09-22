@@ -81,7 +81,7 @@ export default function EnrollStudent() {
     : students;
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="p-6 min-h-screen">
       {/* Heading */}
       <div className="w-full py-3 bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition mb-6">
         <h1 className="text-3xl text-center">Enroll Student</h1>
@@ -165,13 +165,13 @@ export default function EnrollStudent() {
           <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600 rounded-b-xl">
             <thead>
               <tr>
-                <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-tl-lg">
+                <th className="border border-gray-300 bg-gray-300 dark:border-gray-600 px-4 py-2 text-left text-black font-bold rounded-tl-lg">
                   Student Name
                 </th>
-                <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold">
+                <th className="border border-gray-300 bg-gray-300 dark:border-gray-600 px-4 py-2 text-left text-black font-bold">
                   Email
                 </th>
-                <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-tr-lg">
+                <th className="border border-gray-300 bg-gray-300 dark:border-gray-600 px-4 py-2 text-left text-black font-bold rounded-tr-lg">
                   Enrolled Courses
                 </th>
               </tr>

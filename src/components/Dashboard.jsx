@@ -109,10 +109,10 @@ const Dashboard = ({ setActivePage }) => {
   ];
 
   const quickActions = [
-    { text: "Post New Material", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Course" },
+    { text: "Post New Material", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Course Management" },
     { text: "Grade Assignments", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Grading" },
-    { text: "Send Announcement", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Announcements" },
-    { text: "Enroll Student", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "EnrollStudent" },
+    { text: "Send Announcement", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Calendar" },
+    { text: "Enroll Student", color: "bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold", page: "Enroll Student" },
   ];
 
   const handleAction = (action) => {
@@ -135,7 +135,7 @@ const Dashboard = ({ setActivePage }) => {
           className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-5 pulse-glow"
           style={{ boxShadow: "0 4px 15px -5px rgb(59 130 246 / 0.75), 0 7px 30px -10px rgb(236 72 153 / 0.75)" }}
         >
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">To-do List</h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">Events</h2>
           {combinedActivities.length > 0 ? (
             combinedActivities.map((act) => (
               <ActivityItem key={act.id} title={act.title} subtitle={act.subtitle} />
