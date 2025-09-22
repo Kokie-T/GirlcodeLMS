@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import { doc, getDocs, collection, query, where, orderBy } from "firebase/firestore";
 import LearnerSidebar from "../components/LearnerSidebar";
+import StudentContentPage from "./StudentContent";
 
 export default function MyCourses() {
   const navigate = useNavigate();
@@ -14,9 +15,8 @@ export default function MyCourses() {
   const [results, setResults] = useState({});
   const [history, setHistory] = useState({});
   const [expanded, setExpanded] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [dataFetched, setDataFetched] = useState(false); // Track when fetching completes
 
-  // Fetch courses & results
   useEffect(() => {
     if (!user) return;
 
@@ -39,6 +39,7 @@ export default function MyCourses() {
           }
         });
 
+        // Fetch enrolled courses in batches
         const enrolledCourses = [];
         for (let i = 0; i < enrolledCourseIds.length; i += 10) {
           const batchIds = enrolledCourseIds.slice(i, i + 10);
@@ -93,7 +94,7 @@ export default function MyCourses() {
       } catch (err) {
         console.error("Error loading courses:", err);
       } finally {
-        setLoading(false);
+        setDataFetched(true); // Mark fetch complete
       }
     };
 
@@ -107,20 +108,14 @@ export default function MyCourses() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Shared Sidebar */}
       <LearnerSidebar onLogout={handleLogout} />
 
-      {/* Main content */}
       <main className="flex-1 p-6 md:ml-64">
         <header className="bg-white dark:bg-gray-800 p-6 rounded-xl mb-8 shadow text-center">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Courses</h1>
         </header>
 
-        {loading ? (
-          <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : courses.length === 0 ? (
+        {dataFetched && courses.length === 0 ? (
           <div className="text-center">
             <p className="text-gray-600 dark:text-gray-300 mb-3">
               You have not enrolled in any courses yet.
@@ -162,7 +157,6 @@ export default function MyCourses() {
                     </button>
                   </div>
 
-                  {/* Progress bar */}
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-1">
                       <span>Progress</span>
@@ -184,14 +178,23 @@ export default function MyCourses() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => navigate(`/quiz/${course.id}`)}
-                    className="w-full py-3 bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition"
-                  >
-                    Take Quiz
-                  </button>
+                  <div className="flex gap-2 mt-3">
+  <button
+    onClick={() => navigate(`/course-content/:courseId`)}
+    className="flex-1 py-3 bg-gradient-to-r from-green-400 to-teal-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition"
+  >
+    View Content
+  </button>
 
-                  {/* History */}
+  <button
+    onClick={() => navigate(`/quiz/${course.id}`)}
+    className="flex-1 py-3 bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition"
+  >
+    Take Quiz
+  </button>
+</div>
+
+
                   {isExpanded && (
                     <div className="mt-4 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
                       <h4 className="font-semibold mb-2 text-gray-700 dark:text-gray-300">
