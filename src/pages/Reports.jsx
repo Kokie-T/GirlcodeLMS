@@ -1,78 +1,89 @@
 import React, { useEffect, useState } from "react";
-import { db, storage } from "../firebase";
 import {
   collection,
   getDocs,
   addDoc,
-  query,
-  orderBy,
-  updateDoc,
+  deleteDoc,
   doc,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db } from "../firebase";
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [users, setUsers] = useState([]);
+  const [newReport, setNewReport] = useState({
+    title: "",
+    content: "",
+  });
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all"); // all | student | facilitator
   const [updatingId, setUpdatingId] = useState(null);
 
-  // New report form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newMessage, setNewMessage] = useState("");
-  const [newFile, setNewFile] = useState(null);
-
+  // Fetch reports
   useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "reports"));
+        setReports(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      } catch (err) {
+        console.error("Error fetching reports:", err);
+      }
+    };
     fetchReports();
   }, []);
 
-  const fetchReports = async () => {
-    try {
-      const q = query(collection(db, "reports"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setReports(data);
-    } catch (err) {
-      console.error("Error fetching reports:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addReport = async () => {
-    if (!newTitle || !newMessage) return;
-
-    try {
-      let fileURL = null;
-      if (newFile) {
-        const fileRef = ref(storage, `reports/${Date.now()}_${newFile.name}`);
-        await uploadBytes(fileRef, newFile);
-        fileURL = await getDownloadURL(fileRef);
+  // Fetch users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "users"));
+        const filtered = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setUsers(filtered);
+      } catch (err) {
+        console.error("Error fetching users:", err);
       }
+    };
+    fetchUsers();
+  }, []);
 
-      const report = {
-        title: newTitle,
-        message: newMessage,
-        submittedBy: "Admin", // replace with logged-in admin
-        role: "admin",
+  // Add new report manually
+  const addReport = async () => {
+    if (!newReport.title || !newReport.content) {
+      alert("Please enter title and content");
+      return;
+    }
+    try {
+      const docRef = await addDoc(collection(db, "reports"), {
+        ...newReport,
         status: "pending",
-        attachment: fileURL,
-        createdAt: new Date(),
-      };
-
-      const docRef = await addDoc(collection(db, "reports"), report);
-      setReports((prev) => [{ ...report, id: docRef.id }, ...prev]);
-      setNewTitle("");
-      setNewMessage("");
-      setNewFile(null);
+        createdAt: serverTimestamp(),
+      });
+      setReports((prev) => [
+        { id: docRef.id, ...newReport, status: "pending", createdAt: new Date() },
+        ...prev,
+      ]);
+      setNewReport({ title: "", content: "" });
     } catch (err) {
       console.error("Error adding report:", err);
     }
   };
 
+  // Delete report
+  const deleteReport = async (id) => {
+    try {
+      await deleteDoc(doc(db, "reports", id));
+      setReports((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error("Error deleting report:", err);
+    }
+  };
+
+  // Update report status
   const updateStatus = async (id, newStatus) => {
     try {
       setUpdatingId(id);
@@ -87,35 +98,72 @@ export default function Reports() {
     }
   };
 
-  const filteredReports =
-    filter === "all"
-      ? reports
-      : reports.filter((r) => r.role.toLowerCase() === filter);
+  // Auto-generate report for a specific user
+  const generateReportForUser = async (userId) => {
+    try {
+      const user = users.find((u) => u.id === userId);
+      if (!user) return;
+
+      const docRef = await addDoc(collection(db, "reports"), {
+        title: `Progress Report - ${user.firstName} ${user.lastName}`,
+        content: `This is an auto-generated report for ${user.firstName} ${user.lastName} (${user.role}).`,
+        userId: user.id,
+        role: user.role,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+
+      setReports((prev) => [
+        {
+          id: docRef.id,
+          title: `Progress Report - ${user.firstName} ${user.lastName}`,
+          content: `This is an auto-generated report for ${user.firstName} ${user.lastName} (${user.role}).`,
+          userId: user.id,
+          role: user.role,
+          status: "pending",
+          createdAt: new Date(),
+        },
+        ...prev,
+      ]);
+    } catch (err) {
+      console.error("Error generating report:", err);
+    }
+  };
+
+  // Filtering + Searching
+  const filteredReports = reports.filter((r) => {
+    const matchesRole =
+      filter === "all" || (r.role && r.role.toLowerCase() === filter);
+    const matchesSearch =
+      search === "" ||
+      (r.title && r.title.toLowerCase().includes(search.toLowerCase())) ||
+      (r.content && r.content.toLowerCase().includes(search.toLowerCase()));
+    return matchesRole && matchesSearch;
+  });
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Reports</h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-6">Reports</h2>
 
-      {/* Create Report Form */}
+      {/* Add report manually */}
       <div className="bg-white p-4 rounded shadow mb-6">
-        <h3 className="font-semibold mb-2">Create New Report</h3>
+        <h3 className="font-semibold mb-2">Add New Report</h3>
         <input
           type="text"
-          placeholder="Title"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Report Title"
+          value={newReport.title}
+          onChange={(e) =>
+            setNewReport((prev) => ({ ...prev, title: e.target.value }))
+          }
           className="border p-2 rounded w-full mb-2"
         />
         <textarea
-          placeholder="Message"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Report Content"
+          value={newReport.content}
+          onChange={(e) =>
+            setNewReport((prev) => ({ ...prev, content: e.target.value }))
+          }
           className="border p-2 rounded w-full mb-2"
-        />
-        <input
-          type="file"
-          onChange={(e) => setNewFile(e.target.files[0])}
-          className="mb-2"
         />
         <button
           onClick={addReport}
@@ -125,9 +173,44 @@ export default function Reports() {
         </button>
       </div>
 
-      {/* Filter Buttons */}
+      {/* Auto-generate progress reports */}
+      <div className="bg-white p-4 rounded shadow mb-6">
+        <h3 className="font-semibold mb-2">Auto-generate Progress Reports</h3>
+
+        {users.length === 0 && <p>No students or facilitators found.</p>}
+
+        {users.map((u) => (
+          <div key={u.id} className="flex items-center gap-2 mb-1">
+            <span>
+              {u.firstName} {u.lastName} ({u.role})
+            </span>
+            <button
+              onClick={() => generateReportForUser(u.id)}
+              className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+            >
+              Generate Report
+            </button>
+          </div>
+        ))}
+
+        <button
+          onClick={() => users.forEach((u) => generateReportForUser(u.id))}
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mt-2"
+        >
+          Generate All Reports
+        </button>
+      </div>
+
+      {/* Search & Filter */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {["all", "student", "facilitator", "admin"].map((type) => (
+        <input
+          type="text"
+          placeholder="Search reports..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border p-2 rounded w-64"
+        />
+        {["all", "student", "facilitator"].map((type) => (
           <button
             key={type}
             onClick={() => setFilter(type)}
@@ -142,82 +225,52 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Reports Table */}
-      <div className="overflow-x-auto bg-white rounded-xl shadow">
-        {loading ? (
-          <p className="p-4 text-gray-600">Loading reports...</p>
-        ) : filteredReports.length === 0 ? (
-          <p className="p-4 text-gray-600">No reports available</p>
-        ) : (
-          <table className="min-w-full text-left border-collapse">
-            <thead className="bg-indigo-100">
-              <tr>
-                <th className="px-4 py-2">Title</th>
-                <th className="px-4 py-2">Message</th>
-                <th className="px-4 py-2">Attachment</th>
-                <th className="px-4 py-2">Submitted By</th>
-                <th className="px-4 py-2">Role</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Update Status</th>
-                <th className="px-4 py-2">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReports.map((report) => (
-                <tr key={report.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-2">{report.title || "Untitled"}</td>
-                  <td className="px-4 py-2">{report.message}</td>
-                  <td className="px-4 py-2">
-                    {report.attachment ? (
-                      <a
-                        href={report.attachment}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 underline"
-                      >
-                        View File
-                      </a>
-                    ) : (
-                      "N/A"
-                    )}
-                  </td>
-                  <td className="px-4 py-2">{report.submittedBy}</td>
-                  <td className="px-4 py-2 capitalize">{report.role}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        report.status === "resolved"
-                          ? "bg-green-100 text-green-700"
-                          : report.status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {report.status || "pending"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <select
-                      disabled={updatingId === report.id}
-                      value={report.status || "pending"}
-                      onChange={(e) => updateStatus(report.id, e.target.value)}
-                      className="px-2 py-1 rounded border text-sm"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-500">
-                    {report.createdAt?.toDate
-                      ? report.createdAt.toDate().toLocaleString()
-                      : new Date(report.createdAt).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      {/* Reports list */}
+      <div className="bg-white p-4 rounded shadow">
+        <h3 className="font-semibold mb-2">All Reports</h3>
+        {filteredReports.length === 0 && <p>No reports found.</p>}
+        <ul>
+          {filteredReports.map((r) => (
+            <li
+              key={r.id}
+              className="border-b py-2 flex justify-between items-center"
+            >
+              <div>
+                <strong>{r.title}</strong>
+                <p className="text-sm text-gray-600">{r.content}</p>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    r.status === "resolved"
+                      ? "bg-green-100 text-green-700"
+                      : r.status === "pending"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {r.status || "pending"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  disabled={updatingId === r.id}
+                  value={r.status || "pending"}
+                  onChange={(e) => updateStatus(r.id, e.target.value)}
+                  className="px-2 py-1 rounded border text-sm"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <button
+                  onClick={() => deleteReport(r.id)}
+                  className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

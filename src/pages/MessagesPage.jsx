@@ -10,6 +10,7 @@ import {
   addDoc,
   serverTimestamp,
   getDocs,
+  getDoc,
 } from "firebase/firestore";
 import { FaPaperPlane } from "react-icons/fa";
 
@@ -27,7 +28,7 @@ export default function MessagesPage() {
     return `${user.firstName || ""} ${user.lastName || ""}`.trim();
   };
 
-  // 🔹 Load conversations in real-time
+  // 🔹 Load conversations list in real-time
   useEffect(() => {
     if (!currentUser) return;
 
@@ -42,16 +43,25 @@ export default function MessagesPage() {
         ...doc.data(),
       }));
       setConversations(convos);
+    });
 
-      // Refresh currently selected convo with latest messages
-      if (selectedConvo) {
-        const updated = convos.find((c) => c.id === selectedConvo.id);
-        if (updated) setSelectedConvo(updated);
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // 🔹 Listen to messages of the selected conversation in real-time
+  useEffect(() => {
+    if (!selectedConvo?.id) return;
+
+    const convoRef = doc(db, "conversations", selectedConvo.id);
+
+    const unsubscribe = onSnapshot(convoRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSelectedConvo({ id: docSnap.id, ...docSnap.data() });
       }
     });
 
     return () => unsubscribe();
-  }, [currentUser, selectedConvo?.id]);
+  }, [selectedConvo?.id]);
 
   // 🔹 Fetch all users (students, facilitators, admins)
   useEffect(() => {
@@ -70,24 +80,22 @@ export default function MessagesPage() {
   const sendMessage = async () => {
     if (!messageText.trim() || !selectedConvo) return;
 
+    const convoRef = doc(db, "conversations", selectedConvo.id);
+
+    // Always fetch latest before updating
+    const convoSnap = await getDoc(convoRef);
+    const convoData = convoSnap.data();
+
     const newMessage = {
       sender: currentUser.email,
       message: messageText.trim(),
-      timestamp: new Date(), // local optimistic timestamp
+      timestamp: serverTimestamp(),
     };
 
-    const convoRef = doc(db, "conversations", selectedConvo.id);
-
     await updateDoc(convoRef, {
-      messages: [...(selectedConvo.messages || []), newMessage],
+      messages: [...(convoData?.messages || []), newMessage],
       lastUpdated: serverTimestamp(),
     });
-
-    // 🔹 Optimistic UI update so message shows instantly
-    setSelectedConvo((prev) => ({
-      ...prev,
-      messages: [...(prev.messages || []), newMessage],
-    }));
 
     setMessageText("");
   };
@@ -124,19 +132,17 @@ export default function MessagesPage() {
       messages: [],
     };
 
-    setConversations([newConvo, ...conversations]); // add to UI immediately
+    setConversations([newConvo, ...conversations]);
     setSelectedConvo(newConvo);
   };
 
-  // 🔹 Display participant full name & role instead of email
+  // 🔹 Display participant names
   const formatParticipants = (participants) => {
     return participants
       .filter((p) => p !== currentUser.email)
       .map((email) => {
         const user = users.find((u) => u.email === email);
-        return user
-          ? `${getFullName(user)} (${user.role})`
-          : email;
+        return user ? `${getFullName(user)} (${user.role})` : email;
       })
       .join(", ");
   };
