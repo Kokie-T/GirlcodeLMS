@@ -1,14 +1,26 @@
 // src/components/LearnerSidebar.jsx
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FaTachometerAlt, FaBook, FaEnvelope, FaSignOutAlt, FaUserCog, FaCalendar } from "react-icons/fa";
+import {
+  FaTachometerAlt,
+  FaBook,
+  FaEnvelope,
+  FaSignOutAlt,
+  FaUserCog,
+  FaCalendar,
+  FaStore,
+  FaSearch,
+} from "react-icons/fa";
 import { HiMenu, HiX } from "react-icons/hi";
+import { getAuth, signOut } from "firebase/auth";
 
-export default function LearnerSidebar({ onLogout }) {
+export default function LearnerSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const auth = getAuth();
 
   const menuItems = [
     { name: "Dashboard", icon: <FaTachometerAlt />, path: "/learner-dashboard" },
@@ -16,11 +28,17 @@ export default function LearnerSidebar({ onLogout }) {
     { name: "Messages", icon: <FaEnvelope />, path: "/learner/messages" },
     { name: "Calendar", icon: <FaCalendar />, path: "/learner/calendar" },
     { name: "Settings", icon: <FaUserCog />, path: "/learner-settings" },
+    { name: "Help & Support", icon: <FaSearch />, path: "/help"},
   ];
 
   const confirmLogout = async () => {
-    setShowLogoutConfirm(false);
-    if (onLogout) await onLogout();
+    try {
+      await signOut(auth);
+      setShowLogoutConfirm(false);
+      navigate("/"); // 👈 redirect to landing page
+    } catch (error) {
+      console.error("Logout failed:", error.message);
+    }
   };
 
   return (
@@ -50,9 +68,10 @@ export default function LearnerSidebar({ onLogout }) {
                 setSidebarOpen(false);
               }}
               className={`flex items-center gap-3 w-full px-4 py-2 text-sm rounded-lg transition-colors duration-200
-                ${location.pathname === item.path
-                  ? "bg-blue-100 text-blue-600 font-semibold"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                ${
+                  location.pathname === item.path
+                    ? "bg-blue-100 text-blue-600 font-semibold"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                 }`}
             >
               <span className="text-lg">{item.icon}</span>
@@ -80,36 +99,38 @@ export default function LearnerSidebar({ onLogout }) {
         {sidebarOpen ? <HiX size={24} /> : <HiMenu size={24} />}
       </button>
 
-      {/* Logout Confirmation */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div
-            className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-80"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-              Confirm Logout
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to log out?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    {/* Logout Confirmation */}
+{showLogoutConfirm && (
+  <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+    <div
+      className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-80"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        Confirm Logout
+      </h3>
+      <p className="text-gray-600 dark:text-gray-300 mb-6">
+        Are you sure you want to log out?
+      </p>
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowLogoutConfirm(false)}
+          className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmLogout}
+          className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
     </>
   );
 }

@@ -1,6 +1,7 @@
+// src/pages/LearnerSettings.jsx
 import React, { useState, useEffect } from "react";
 import LearnerSidebar from "../components/LearnerSidebar";
-import { getAuth, updateProfile, updatePassword } from "firebase/auth";
+import { getAuth, updateProfile, sendPasswordResetEmail } from "firebase/auth";
 import { FaUserCircle, FaSun, FaMoon, FaLock, FaCamera } from "react-icons/fa";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../firebase";
@@ -13,10 +14,10 @@ export default function LearnerSettings() {
     JSON.parse(localStorage.getItem("darkMode")) || false
   );
   const [displayName, setDisplayName] = useState(user?.displayName || "");
-  const [newPassword, setNewPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(user?.photoURL || "");
   const [uploading, setUploading] = useState(false);
+  const [resetMsg, setResetMsg] = useState(""); // ✅ Notification message
 
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(darkMode));
@@ -33,19 +34,6 @@ export default function LearnerSettings() {
     } catch (err) {
       console.error(err);
       setMsg("Failed to update profile.");
-    }
-  };
-
-  // Update Password
-  const handlePasswordChange = async () => {
-    if (!newPassword.trim()) return;
-    try {
-      await updatePassword(user, newPassword);
-      setMsg("Password updated successfully!");
-      setNewPassword("");
-    } catch (err) {
-      console.error(err);
-      setMsg("Failed to update password.");
     }
   };
 
@@ -66,6 +54,20 @@ export default function LearnerSettings() {
       setMsg("Failed to upload avatar.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Send password reset email
+  const handleResetPassword = async () => {
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      setResetMsg("✅ Password reset link sent to your email!");
+      // Clear message after 5 seconds
+      setTimeout(() => setResetMsg(""), 5000);
+    } catch (err) {
+      console.error(err);
+      setResetMsg("❌ Failed to send reset email.");
+      setTimeout(() => setResetMsg(""), 5000);
     }
   };
 
@@ -137,6 +139,7 @@ export default function LearnerSettings() {
             >
               Save Profile
             </button>
+            {msg && <p className="text-sm text-gray-700 dark:text-gray-300">{msg}</p>}
           </div>
         </div>
 
@@ -153,25 +156,26 @@ export default function LearnerSettings() {
           />
         </div>
 
-        {/* Change Password Card */}
+        {/* Reset Password Card */}
         <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <FaLock /> Change Password
+            <FaLock /> Reset Password
           </h2>
-          <input
-            type="password"
-            placeholder="New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400 bg-gray-50 dark:bg-gray-700 dark:text-white"
-          />
+          <p className="text-gray-700 dark:text-gray-300">
+            For security reasons, you cannot change your password directly in the app.
+            Click the button below to receive a reset link via email.
+          </p>
           <button
-            onClick={handlePasswordChange}
+            onClick={handleResetPassword}
             className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded-lg shadow hover:opacity-90"
           >
-            Update Password
+            Send Reset Link
           </button>
-          {msg && <p className="text-sm text-gray-700 dark:text-gray-300">{msg}</p>}
+          {resetMsg && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+              {resetMsg}
+            </p>
+          )}
         </div>
       </main>
     </div>

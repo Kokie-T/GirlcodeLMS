@@ -1,93 +1,80 @@
-import React, { useState, useEffect, useMemo } from "react";
+// src/pages/StudentCalendarPage.jsx
+import React, { useState, useEffect } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { getAuth } from "firebase/auth";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { FaBars } from "react-icons/fa";
 import LearnerSidebar from "../components/LearnerSidebar";
+import { FaBars, FaCalendarAlt } from "react-icons/fa";
 
-// ---------- Event Card ----------
-const EventCard = ({ event }) => (
-  <div className="p-4 rounded-xl shadow hover:shadow-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
-    <h3 className="font-semibold">{event.title}</h3>
-    <p className="text-xs text-gray-500 dark:text-gray-400">{event.type}</p>
-  </div>
-);
-
-export default function CalendarPage() {
-  const auth = getAuth();
-  const user = auth.currentUser;
-
+export default function StudentCalendarPage() {
+  const [date, setDate] = useState(new Date());
+  const [events, setEvents] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState("Calendar");
-  const [darkMode, setDarkMode] = useState(
-    JSON.parse(localStorage.getItem("darkMode")) || false
-  );
-  const [events, setEvents] = useState([]);
-  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [hoveredDate, setHoveredDate] = useState(null);
 
-  // ---------------- Fetch Learner Events ----------------
+  // Fetch events (facilitator + admin)
+  const fetchEvents = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "events"));
+      const eventsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setEvents(eventsData);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+    }
+  };
+
   useEffect(() => {
-    if (!user) return;
+    fetchEvents();
+  }, []);
 
-    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
-      const evs = snapshot.docs
-        .map((doc) => {
-          const data = doc.data();
+  // Calendar tile content with custom tooltip
+  const tileContent = ({ date: tileDate, view }) => {
+    if (view === "month") {
+      const dayEvents = events.filter(
+        (event) => new Date(event.date).toDateString() === tileDate.toDateString()
+      );
 
-          let startDate;
-          if (typeof data.date === "string") {
-            startDate = new Date(data.date);
-          } else if (data.date?.toDate) {
-            startDate = data.date.toDate();
-          }
+      if (dayEvents.length === 0) return null;
 
-          return {
-            id: doc.id,
-            title: data.title,
-            start: startDate,
-            type: data.type || "",
-            studentIds: data.studentIds || [],
-            allStudents: data.allStudents || false,
-          };
-        })
-        .filter((ev) => ev.allStudents || ev.studentIds.includes(user.uid));
+      return (
+        <div
+          className="relative mt-1 w-full text-center bg-blue-500 text-white rounded-full text-xs cursor-pointer"
+          onMouseEnter={() => setHoveredDate(tileDate.toDateString())}
+          onMouseLeave={() => setHoveredDate(null)}
+        >
+          {dayEvents.length}
+          {/* Custom Tooltip */}
+          {hoveredDate === tileDate.toDateString() && (
+            <div className="absolute z-50 top-8 left-1/2 transform -translate-x-1/2 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-md p-2 text-sm text-gray-800 dark:text-gray-200">
+              {dayEvents.map((ev) => (
+                <div key={ev.id} className="mb-1 last:mb-0">
+                  • {ev.title}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+  };
 
-      setEvents(evs);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // ---------------- Dark Mode ----------------
-  useEffect(() => {
-    localStorage.setItem("darkMode", JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-  }, [darkMode]);
-
-  // ---------------- Memoize Event Dates for calendar styling ----------------
-  const eventDates = useMemo(
-    () => new Set(events.map((ev) => ev.start.toDateString())),
-    [events]
-  );
-
-  // ---------------- Events for selected date ----------------
-  const eventsForDate = useMemo(
-    () => events.filter((ev) => ev.start.toDateString() === calendarDate.toDateString()),
-    [events, calendarDate]
+  const eventsForSelectedDate = events.filter(
+    (event) => new Date(event.date).toDateString() === date.toDateString()
   );
 
   return (
-    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <LearnerSidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         activePage={activePage}
         setActivePage={setActivePage}
-        darkMode={darkMode}
       />
 
       {/* Main content */}
@@ -102,33 +89,60 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* Calendar Header Card */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow hover:shadow-xl mb-6 flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">
-            📅 My Calendar
+        {/* Calendar Header */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6 flex items-center justify-between">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+            <FaCalendarAlt /> My Calendar
           </h1>
         </div>
 
         {/* Calendar */}
-        <Calendar
-          value={calendarDate}
-          onChange={setCalendarDate}
-          tileClassName={({ date, view }) =>
-            view === "month" && eventDates.has(date.toDateString())
-              ? "bg-blue-500 text-white rounded-full"
-              : null
-          }
-          className="rounded-lg shadow-lg w-full max-w-md"
-        />
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md w-full max-w-3xl mx-auto mb-6">
+          <Calendar
+            onChange={setDate}
+            value={date}
+            tileContent={tileContent}
+            className="rounded-xl shadow-inner border border-gray-200 dark:border-gray-700 overflow-hidden"
+          />
+        </div>
 
-        {/* Events for selected date */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {eventsForDate.length > 0 ? (
-            eventsForDate.map((ev) => <EventCard key={ev.id} event={ev} />)
+        {/* Events List */}
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
+            Events on {date.toDateString()}
+          </h2>
+
+          {eventsForSelectedDate.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-6 bg-gray-100 dark:bg-gray-700 rounded-xl">
+              <FaCalendarAlt className="text-4xl text-gray-400 dark:text-gray-300 mb-2" />
+              <p className="text-gray-500 dark:text-gray-300 italic">
+                No events scheduled for this day.
+              </p>
+            </div>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400 italic col-span-full">
-              No events
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {eventsForSelectedDate.map((event) => (
+                <div
+                  key={event.id}
+                  className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-lg border border-gray-200 dark:border-gray-700 transition"
+                >
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    {event.title}
+                  </h3>
+                  {event.description && (
+                    <p className="text-gray-600 dark:text-gray-300 mt-2">
+                      {event.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {new Date(event.date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </main>
