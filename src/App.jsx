@@ -81,7 +81,7 @@ function AppContent() {
         <Route path="/learnersidebar" element={<LearnerSidebar />} />
         {/* ✅ Add Learner Messages route */}
         <Route path="/learner/messages" element={<LearnerMessages />} />
-        <Route path="/course-content/:courseId" element={<StudentContentPage/>} />
+        <Route path="/course-content/:Id" element={<StudentContentPage/>} />
       </Routes>
       {showLayout && <Footer />}
     </>

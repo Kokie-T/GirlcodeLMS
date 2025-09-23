@@ -1,95 +1,125 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { db } from "../firebase";
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import LearnerSidebar from "../components/LearnerSidebar";
 
 export default function StudentContentPage() {
-  const { courseId } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams(); // courseId
   const auth = getAuth();
   const user = auth.currentUser;
 
-  const [materials, setMaterials] = useState([]);
-  const [courseTitle, setCourseTitle] = useState("");
+  const [course, setCourse] = useState(null);
+  const [activeQuestions, setActiveQuestions] = useState([]);
+  const [answers, setAnswers] = useState({}); // track student selections
 
+  // Fetch course details
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        // Fetch course title
-        if (courseId) {
-          const courseRef = doc(db, "courses", courseId);
-          const courseSnap = await getDoc(courseRef);
-          if (courseSnap.exists()) {
-            setCourseTitle(courseSnap.data().title);
-          } else {
-            setCourseTitle("Unknown Course");
-          }
-        }
-
-        // Fetch course materials
-        const materialsQuery = query(
-          collection(db, "courseMaterials"),
-          where("courseId", "==", courseId || ""),
-          orderBy("uploadedAt", "desc")
-        );
-        const materialsSnap = await getDocs(materialsQuery);
-        const materialsData = materialsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setMaterials(materialsData);
-      } catch (err) {
-        console.error("Error fetching materials:", err);
+    const fetchCourse = async () => {
+      const courseRef = doc(db, "courses", id);
+      const snap = await getDoc(courseRef);
+      if (snap.exists()) {
+        setCourse({ id: snap.id, ...snap.data() });
       }
     };
+    fetchCourse();
+  }, [id]);
 
-    fetchData();
-  }, [user, courseId, navigate]);
+  // Listen for active questions
+  useEffect(() => {
+    const q = query(
+      collection(db, "activeQuestions"),
+      where("courseId", "==", id),
+      where("isActive", "==", true)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const questions = [];
+      snapshot.forEach((doc) => questions.push({ id: doc.id, ...doc.data() }));
+      setActiveQuestions(questions);
+    });
+    return () => unsub();
+  }, [id]);
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    navigate("/login");
+  // Submit answer
+  const submitAnswer = async (setId, qIdx, question, selectedOption) => {
+    if (!user) return;
+
+    try {
+      await addDoc(collection(db, "submissions"), {
+        userId: user.uid,
+        courseId: id,
+        questionSetId: setId,
+        questionIndex: qIdx,
+        question: question.question,
+        selectedAnswer: selectedOption,
+        correctAnswer: question.answer, // from AI/library
+        createdAt: serverTimestamp(),
+      });
+
+      alert("Answer submitted!");
+    } catch (error) {
+      console.error("Error saving answer:", error);
+      alert("Failed to submit answer.");
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <LearnerSidebar onLogout={handleLogout} />
-      <main className="flex-1 p-6 md:ml-64">
-        <header className="bg-white dark:bg-gray-800 p-6 rounded-xl mb-8 shadow text-center">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-            {courseTitle || "Course Materials"}
-          </h1>
-        </header>
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+      <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+        {course?.title}
+      </h1>
 
-        {materials.length === 0 ? (
-          <p className="text-center text-gray-600 dark:text-gray-300">
-            No materials uploaded for this course yet.
-          </p>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-6">
-            {materials.map((material) => (
-              <div key={material.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
-                <h3 className="font-semibold text-gray-800 dark:text-white mb-2">{material.title}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{material.description}</p>
-                {material.fileUrl && (
-                  <a
-                    href={material.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline text-sm"
-                  >
-                    Download
-                  </a>
-                )}
+      <h2 className="text-xl font-semibold mt-8 mb-2">Active Questions</h2>
+      {activeQuestions.length > 0 ? (
+        activeQuestions.map((set) => (
+          <div key={set.id} className="mb-6 p-4 border rounded-lg dark:border-gray-700">
+            {set.questions.map((q, idx) => (
+              <div key={idx} className="mb-5">
+                <p className="font-semibold text-gray-800 dark:text-gray-200">
+                  {idx + 1}. {q.question}
+                </p>
+
+                <ul className="mt-2 space-y-2">
+                  {q.options.map((opt, i) => (
+                    <li
+                      key={i}
+                      onClick={() => setAnswers((prev) => ({ ...prev, [idx]: opt }))}
+                      className={`p-2 rounded cursor-pointer ${
+                        answers[idx] === opt
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      {opt}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() =>
+                    submitAnswer(set.id, idx, q, answers[idx])
+                  }
+                  disabled={!answers[idx]}
+                  className="mt-2 px-4 py-2 bg-green-500 text-white rounded disabled:opacity-50"
+                >
+                  Submit
+                </button>
               </div>
             ))}
           </div>
-        )}
-      </main>
+        ))
+      ) : (
+        <p className="text-gray-500 dark:text-gray-400">No active questions right now.</p>
+      )}
     </div>
   );
 }

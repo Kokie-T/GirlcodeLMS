@@ -1,248 +1,200 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { getAuth } from "firebase/auth";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { doc, getDocs, collection, query, where, orderBy } from "firebase/firestore";
 import LearnerSidebar from "../components/LearnerSidebar";
-import StudentContentPage from "./StudentContent";
 
-export default function MyCourses() {
-  const navigate = useNavigate();
-  const auth = getAuth();
-  const user = auth.currentUser;
-
+export default function MyCoursesPage() {
   const [courses, setCourses] = useState([]);
-  const [results, setResults] = useState({});
-  const [history, setHistory] = useState({});
-  const [expanded, setExpanded] = useState({});
-  const [dataFetched, setDataFetched] = useState(false); // Track when fetching completes
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [modules, setModules] = useState([]);
+  const [expandedModule, setExpandedModule] = useState(null);
+  const [moduleDetails, setModuleDetails] = useState({}); // { [moduleId]: { content: [], assessments: [] } }
+  const [expandedAssessments, setExpandedAssessments] = useState(null);
 
+  // Fetch courses on mount
   useEffect(() => {
-    if (!user) return;
-
-    const fetchData = async () => {
-      try {
-        // Fetch enrollments
-        const enrollmentQuery = query(
-          collection(db, "enrollments"),
-          where("studentId", "==", user.uid)
-        );
-        const enrollmentSnap = await getDocs(enrollmentQuery);
-
-        const enrolledCourseIds = [];
-        const enrollmentProgress = {};
-        enrollmentSnap.forEach((doc) => {
-          const { courseId, progress = 0 } = doc.data();
-          if (courseId) {
-            enrolledCourseIds.push(courseId);
-            enrollmentProgress[courseId] = progress;
-          }
-        });
-
-        // Fetch enrolled courses in batches
-        const enrolledCourses = [];
-        for (let i = 0; i < enrolledCourseIds.length; i += 10) {
-          const batchIds = enrolledCourseIds.slice(i, i + 10);
-          const batchQuery = query(
-            collection(db, "courses"),
-            where("__name__", "in", batchIds)
-          );
-          const batchSnap = await getDocs(batchQuery);
-          batchSnap.docs.forEach((doc) => {
-            enrolledCourses.push({
-              id: doc.id,
-              title: doc.data().title || "Untitled Course",
-              progress: enrollmentProgress[doc.id] || 0,
-            });
-          });
-        }
-        setCourses(enrolledCourses);
-
-        // Fetch results
-        const resultsQuery = query(
-          collection(db, "results"),
-          where("userId", "==", user.uid),
-          orderBy("takenAt", "desc")
-        );
-        const resultsSnap = await getDocs(resultsQuery);
-
-        const resultMap = {};
-        const historyMap = {};
-        resultsSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          const courseId = data.courseId;
-
-          if (!historyMap[courseId]) historyMap[courseId] = [];
-          historyMap[courseId].push({
-            score: data.score,
-            date: data.takenAt?.toDate?.() || new Date(),
-          });
-
-          if (!resultMap[courseId]) resultMap[courseId] = { total: 0, count: 0 };
-          resultMap[courseId].total += data.score;
-          resultMap[courseId].count += 1;
-        });
-
-        Object.keys(resultMap).forEach((courseId) => {
-          resultMap[courseId] = Math.round(
-            resultMap[courseId].total / resultMap[courseId].count
-          );
-        });
-
-        setResults(resultMap);
-        setHistory(historyMap);
-      } catch (err) {
-        console.error("Error loading courses:", err);
-      } finally {
-        setDataFetched(true); // Mark fetch complete
-      }
+    const fetchCourses = async () => {
+      const snap = await getDocs(collection(db, "courses"));
+      setCourses(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
+    fetchCourses();
+  }, []);
 
-    fetchData();
-  }, [user]);
+  // Fetch modules when course changes
+  useEffect(() => {
+    if (!selectedCourse) return setModules([]);
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    navigate("/login");
+    const fetchModules = async () => {
+      const snap = await getDocs(
+        collection(db, "courses", selectedCourse.id, "modules")
+      );
+      setModules(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+    fetchModules();
+  }, [selectedCourse]);
+
+  // Fetch module content & assessments only when expanded
+  const fetchModuleDetails = async (moduleId) => {
+    if (moduleDetails[moduleId]) return; // already fetched
+
+    const contentSnap = await getDocs(
+      collection(db, "courses", selectedCourse.id, "modules", moduleId, "content")
+    );
+    const assessmentsSnap = await getDocs(
+      collection(db, "courses", selectedCourse.id, "modules", moduleId, "assessments")
+    );
+
+    setModuleDetails((prev) => ({
+      ...prev,
+      [moduleId]: {
+        content: contentSnap.docs.map((c) => ({ id: c.id, ...c.data() })),
+        assessments: assessmentsSnap.docs.map((a) => ({ id: a.id, ...a.data() })),
+      },
+    }));
+  };
+
+  const openTextInNewTab = (text) => {
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    URL.revokeObjectURL(url);
+  };
+
+  const startAssessment = (assessment) => {
+    alert(`Starting assessment: ${assessment.title}`);
+    // integrate assessment logic here
+  };
+
+  const toggleModule = (modId) => {
+    const newState = expandedModule === modId ? null : modId;
+    setExpandedModule(newState);
+    if (newState) fetchModuleDetails(modId);
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-      <LearnerSidebar onLogout={handleLogout} />
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <div className="w-64 flex-shrink-0">
+        <LearnerSidebar />
+      </div>
 
-      <main className="flex-1 p-6 md:ml-64">
-        <header className="bg-white dark:bg-gray-800 p-6 rounded-xl mb-8 shadow text-center">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Courses</h1>
-        </header>
+      {/* Main Content */}
+      <div className="flex-1 bg-gray-50 p-6 overflow-y-auto">
+        <h1 className="text-2xl font-bold mb-6">📘 My Courses</h1>
 
-        {dataFetched && courses.length === 0 ? (
-          <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-300 mb-3">
-              You have not enrolled in any courses yet.
-            </p>
-            <button
-              onClick={() => navigate("/courses")}
-              className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded-xl shadow hover:opacity-90 transition"
-            >
-              Browse Courses
-            </button>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-6">
-            {courses.map((course) => {
-              const avgScore = results[course.id] ?? 0;
-              const courseHistory = history[course.id] ?? [];
-              const isExpanded = expanded[course.id];
-              const contentProgress = course.progress || 0;
+        {courses.map((course) => (
+          <div key={course.id} className="border rounded bg-white shadow p-4 mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="font-semibold text-lg">{course.title}</h2>
+              <button
+                className="text-blue-500 underline text-sm"
+                onClick={() =>
+                  setSelectedCourse(
+                    selectedCourse?.id === course.id ? null : course
+                  )
+                }
+              >
+                {selectedCourse?.id === course.id ? "Hide Modules" : "Show Modules"}
+              </button>
+            </div>
 
-              return (
-                <div
-                  key={course.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition hover:shadow-xl"
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                      {course.title}
-                    </h3>
-                    <button
-                      onClick={() =>
-                        setExpanded((prev) => ({
-                          ...prev,
-                          [course.id]: !prev[course.id],
-                        }))
-                      }
-                      className="text-blue-500 text-sm hover:underline"
-                    >
-                      {isExpanded ? "Hide History" : "Show History"}
-                    </button>
+            {selectedCourse?.id === course.id && (
+              <div className="space-y-3 mt-3">
+                {modules.map((mod) => (
+                  <div key={mod.id} className="border rounded p-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold">{mod.title}</span>
+                      <button
+                        className="text-blue-500 underline text-sm"
+                        onClick={() => toggleModule(mod.id)}
+                      >
+                        {expandedModule === mod.id ? "Hide Details" : "Show Details"}
+                      </button>
+                    </div>
+
+                    {expandedModule === mod.id && (
+                      <div className="space-y-3">
+                        {/* Content */}
+                        <div>
+                          <h3 className="font-medium">Content</h3>
+                          {moduleDetails[mod.id]?.content?.length > 0 ? (
+                            moduleDetails[mod.id].content.map((c) => (
+                              <div
+                                key={c.id}
+                                className="border rounded p-2 flex justify-between items-center"
+                              >
+                                <span>{c.title}</span>
+                                <div className="flex gap-2">
+                                  {c.type === "text" ? (
+                                    <button
+                                      className="text-blue-500"
+                                      onClick={() => openTextInNewTab(c.text)}
+                                    >
+                                      View
+                                    </button>
+                                  ) : (
+                                    <a
+                                      href={c.fileURL}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-500"
+                                    >
+                                      Download
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-gray-500">No content yet</p>
+                          )}
+                        </div>
+
+                        {/* Assessments */}
+                        <button
+                          onClick={() =>
+                            setExpandedAssessments(
+                              expandedAssessments === mod.id ? null : mod.id
+                            )
+                          }
+                          className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded"
+                        >
+                          {expandedAssessments === mod.id
+                            ? "Hide Assessments"
+                            : "Show Assessments"}
+                        </button>
+
+                        {expandedAssessments === mod.id && (
+                          <div className="mt-2 space-y-2 p-2 bg-gray-100 rounded border">
+                            {moduleDetails[mod.id]?.assessments?.length > 0 ? (
+                              moduleDetails[mod.id].assessments.map((a) => (
+                                <div
+                                  key={a.id}
+                                  className="p-2 border rounded flex justify-between items-center"
+                                >
+                                  <span>{a.title}</span>
+                                  <button
+                                    className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
+                                    onClick={() => startAssessment(a)}
+                                  >
+                                    Start
+                                  </button>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-gray-500">No assessments yet</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="mb-4">
-                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      <span>Progress</span>
-                      <span>{Math.min(contentProgress + avgScore, 100)}%</span>
-                    </div>
-                    <div className="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
-                      <div
-                        className="absolute left-0 top-0 h-4 bg-blue-500 transition-all duration-700"
-                        style={{ width: `${contentProgress}%` }}
-                      />
-                      <div
-                        className="absolute left-0 top-0 h-4 bg-pink-400 opacity-70 transition-all duration-700"
-                        style={{ width: `${avgScore}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      <span>Content</span>
-                      <span>Quiz Avg</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-3">
-  <button
-    onClick={() => navigate(`/course-content/:courseId`)}
-    className="flex-1 py-3 bg-gradient-to-r from-green-400 to-teal-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition"
-  >
-    View Content
-  </button>
-
-  <button
-    onClick={() => navigate(`/quiz/${course.id}`)}
-    className="flex-1 py-3 bg-gradient-to-r from-blue-400 to-pink-400 text-white font-semibold rounded-xl shadow hover:opacity-90 transition"
-  >
-    Take Quiz
-  </button>
-</div>
-
-
-                  {isExpanded && (
-                    <div className="mt-4 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-gray-700 dark:text-gray-300">
-                        Past Quiz Attempts
-                      </h4>
-                      {courseHistory.length > 0 ? (
-                        <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                          {courseHistory.map((attempt, idx) => (
-                            <li
-                              key={idx}
-                              className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1"
-                            >
-                              <span>
-                                Attempt {courseHistory.length - idx}
-                                {idx === 0 && (
-                                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">
-                                    Latest
-                                  </span>
-                                )}
-                              </span>
-                              <span>
-                                {attempt.score}% •{" "}
-                                {attempt.date.toLocaleDateString("en-GB", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}{" "}
-                                {attempt.date.toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          No quiz attempts yet.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </main>
+        ))}
+      </div>
     </div>
   );
 }

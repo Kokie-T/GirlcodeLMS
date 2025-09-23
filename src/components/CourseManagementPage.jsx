@@ -10,13 +10,9 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db, storage } from "../firebase";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
+// Reusable expandable list
 function ExpandableList({ title, items, selectedId, onSelect }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -51,6 +47,7 @@ function ExpandableList({ title, items, selectedId, onSelect }) {
   );
 }
 
+// Question editor
 function QuestionEditor({ question, onChange, questionType }) {
   const [localQuestion, setLocalQuestion] = useState(
     typeof question === "string" ? { text: question, options: [] } : question
@@ -140,7 +137,7 @@ export default function CourseManagementPage() {
   const [selectedModule, setSelectedModule] = useState(null);
   const [contentList, setContentList] = useState([]);
 
-  // Course creation inputs
+  // Course inputs
   const [newCourseTitle, setNewCourseTitle] = useState("");
   const [newCourseDescription, setNewCourseDescription] = useState("");
 
@@ -151,23 +148,19 @@ export default function CourseManagementPage() {
   const [newContentFile, setNewContentFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // AI Question Generator states
+  // Custom AI Question Generator
   const [questionCourseId, setQuestionCourseId] = useState("");
   const [questionModuleId, setQuestionModuleId] = useState("");
   const [questionType, setQuestionType] = useState("text");
-  const [questionTarget, setQuestionTarget] = useState("test");
   const [modulesForQuestionCourse, setModulesForQuestionCourse] = useState([]);
-  const [aiQuestions, setAiQuestions] = useState([]);
-  const [aiGenerating, setAiGenerating] = useState(false);
-
-  // Custom AI Question Generator
   const [customPrompt, setCustomPrompt] = useState("");
   const [customAIQuestions, setCustomAIQuestions] = useState([]);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
-  // Questions Library persisted to Firestore
+  // Questions Library
   const [questionsLibrary, setQuestionsLibrary] = useState([]);
 
-  // Fetch courses on mount
+  // Fetch courses
   useEffect(() => {
     const fetchCourses = async () => {
       const snap = await getDocs(collection(db, "courses"));
@@ -214,7 +207,7 @@ export default function CourseManagementPage() {
     fetchContent();
   }, [selectedCourse, selectedModule]);
 
-  // Fetch modules for selected course in question tab
+  // Fetch modules for selected course in AI tab
   useEffect(() => {
     if (!questionCourseId) {
       setModulesForQuestionCourse([]);
@@ -230,13 +223,12 @@ export default function CourseManagementPage() {
     fetchModulesForQuestion();
   }, [questionCourseId]);
 
-  // Load questions library draft items from Firestore on mount
+  // Load questions library
   useEffect(() => {
     const fetchLibrary = async () => {
       const q = query(collection(db, "questionLibraries"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
-      const loaded = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setQuestionsLibrary(loaded);
+      setQuestionsLibrary(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
     fetchLibrary();
   }, []);
@@ -267,7 +259,7 @@ export default function CourseManagementPage() {
     setNewModuleTitle("");
   };
 
-  // Add content with file upload & save URL
+  // Add content
   const addContent = async () => {
     if (!selectedCourse || !selectedModule) return alert("Select course & module");
     if (!newContentTitle.trim()) return alert("Enter content title");
@@ -306,70 +298,24 @@ export default function CourseManagementPage() {
     setUploading(false);
   };
 
-  // Delete content both in Firestore and Storage file
+  // Delete content
   const deleteContent = async (content) => {
-    if (!window.confirm(`Delete content "${content.title}"? This cannot be undone.`)) return;
-
+    if (!window.confirm(`Delete content "${content.title}"?`)) return;
     try {
-      if (content.filePath) {
-        const storageRef = ref(storage, content.filePath);
-        await deleteObject(storageRef);
-      }
+      if (content.filePath) await deleteObject(ref(storage, content.filePath));
       await deleteDoc(
         doc(db, "courses", selectedCourse.id, "modules", selectedModule.id, "content", content.id)
       );
       setContentList(contentList.filter((c) => c.id !== content.id));
-    } catch (error) {
-      alert("Failed to delete content");
-      console.error(error);
-    }
-  };
-
-  // Generate AI questions
-  const generateAIQuestions = async () => {
-    if (!questionCourseId || !questionModuleId) return alert("Select course & module for questions");
-    setAiGenerating(true);
-    const moduleObj = modulesForQuestionCourse.find((m) => m.id === questionModuleId);
-    const prompt = `Generate 5 ${questionType} questions for a ${questionTarget} in module '${moduleObj?.title || ""}'. Format answers as JSON array.`;
-
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemma-2-9b-it:free",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      const data = await response.json();
-      const jsonStr = data.choices?.[0]?.message?.content ?? "[]";
-      let questions = [];
-      try {
-        questions = JSON.parse(jsonStr);
-      } catch {
-        questions = [{ text: jsonStr }];
-      }
-      setAiQuestions(questions);
     } catch (err) {
-      alert("AI question generation failed");
+      alert("Failed to delete content");
       console.error(err);
-    } finally {
-      setAiGenerating(false);
     }
   };
 
-  const updateQuestion = (index, updatedQuestion) => {
-    const list = [...aiQuestions];
-    list[index] = updatedQuestion;
-    setAiQuestions(list);
-  };
-
-  // Custom AI Question Generator
+  // Generate custom AI questions
   const generateCustomAIQuestions = async () => {
-    if (!customPrompt.trim()) return alert("Enter a prompt for AI");
+    if (!customPrompt.trim() || !questionCourseId || !questionModuleId) return alert("Missing data");
     setAiGenerating(true);
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -384,8 +330,7 @@ export default function CourseManagementPage() {
         }),
       });
       const data = await res.json();
-      let jsonStr = data.choices?.[0]?.message?.content ?? "[]";
-      jsonStr = jsonStr.replace(/``````/g, "").trim();
+      let jsonStr = data.choices?.[0]?.message?.content?.replace(/``````/g, "").trim() || "[]";
       let parsed = [];
       try {
         parsed = JSON.parse(jsonStr).map((q) => ({ text: q.text || "", options: q.options || [] }));
@@ -405,27 +350,6 @@ export default function CourseManagementPage() {
     const list = [...customAIQuestions];
     list[i] = updated;
     setCustomAIQuestions(list);
-  };
-
-  const saveToLibrary = async () => {
-    if (aiQuestions.length === 0) return alert("No questions to save");
-    const newLibraryEntry = {
-      courseId: questionCourseId,
-      moduleId: questionModuleId,
-      target: questionTarget,
-      type: questionType,
-      questions: aiQuestions,
-      createdAt: serverTimestamp(),
-    };
-    try {
-      const docRef = await addDoc(collection(db, "questionLibraries"), newLibraryEntry);
-      setQuestionsLibrary([{ id: docRef.id, ...newLibraryEntry }, ...questionsLibrary]);
-      alert("Saved to library");
-      setAiQuestions([]);
-    } catch (err) {
-      alert("Failed to save to library");
-      console.error(err);
-    }
   };
 
   const saveCustomToLibrary = async () => {
@@ -450,25 +374,21 @@ export default function CourseManagementPage() {
     }
   };
 
-  // Delete a saved library entry from Firestore and local state
   const deleteLibraryEntry = async (id) => {
-    if (!window.confirm("Delete this saved questions entry? This cannot be undone.")) return;
+    if (!window.confirm("Delete this entry?")) return;
     try {
       await deleteDoc(doc(db, "questionLibraries", id));
-      setQuestionsLibrary(questionsLibrary.filter((entry) => entry.id !== id));
+      setQuestionsLibrary(questionsLibrary.filter((e) => e.id !== id));
     } catch (err) {
       alert("Failed to delete saved questions");
       console.error(err);
     }
   };
 
-  // Launch questions to student dashboard (placeholder for integration)
   const launchQuestions = (entry) => {
-    // Implement integration logic here as needed
     alert(`Launched ${entry.questions.length} questions to student dashboard.`);
   };
 
-  // Helper to view text content in new tab
   const openTextInNewTab = (text) => {
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -476,18 +396,11 @@ export default function CourseManagementPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Helper to get course title by ID
-  const getCourseTitleById = (cid) => {
-    return courses.find((c) => c.id === cid)?.title || cid;
-  };
-
-  // Helper to get module title by course ID and module ID
-  const getModuleTitleById = (cid, mid) => {
-    if (cid === questionCourseId) {
-      return modulesForQuestionCourse.find((m) => m.id === mid)?.title || mid;
-    }
-    return mid;
-  };
+  const getCourseTitleById = (cid) => courses.find((c) => c.id === cid)?.title || cid;
+  const getModuleTitleById = (cid, mid) =>
+    cid === questionCourseId
+      ? modulesForQuestionCourse.find((m) => m.id === mid)?.title || mid
+      : mid;
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -495,21 +408,13 @@ export default function CourseManagementPage() {
       <div className="flex space-x-4 mb-6 text-lg font-semibold">
         <button
           onClick={() => setActiveTab("management")}
-          className={`px-4 py-2 rounded ${
-            activeTab === "management"
-              ? "bg-gradient-to-r from-blue-400 to-pink-400 text-white"
-              : "bg-gray-200"
-          }`}
+          className={`px-4 py-2 rounded ${activeTab === "management" ? "bg-gradient-to-r from-blue-400 to-pink-400 text-white" : "bg-gray-200"}`}
         >
           Course Management
         </button>
         <button
           onClick={() => setActiveTab("customAI")}
-          className={`px-4 py-2 rounded ${
-            activeTab === "customAI"
-              ? "bg-gradient-to-r from-blue-400 to-pink-400 text-white"
-              : "bg-gray-200"
-          }`}
+          className={`px-4 py-2 rounded ${activeTab === "customAI" ? "bg-gradient-to-r from-blue-400 to-pink-400 text-white" : "bg-gray-200"}`}
         >
           Custom AI Generator
         </button>
@@ -520,132 +425,46 @@ export default function CourseManagementPage() {
         <>
           {/* Add new course form */}
           <div className="mb-4">
-            <input
-              type="text"
-              placeholder="New Course Title"
-              value={newCourseTitle}
-              onChange={(e) => setNewCourseTitle(e.target.value)}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <textarea
-              placeholder="Course Description"
-              value={newCourseDescription}
-              onChange={(e) => setNewCourseDescription(e.target.value)}
-              className="w-full p-2 mb-2 border rounded"
-              rows={3}
-            />
-            <button
-              onClick={addCourse}
-              className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded"
-            >
-              Add Course
-            </button>
+            <input type="text" placeholder="New Course Title" value={newCourseTitle} onChange={(e) => setNewCourseTitle(e.target.value)} className="w-full p-2 mb-2 border rounded" />
+            <textarea placeholder="Course Description" value={newCourseDescription} onChange={(e) => setNewCourseDescription(e.target.value)} className="w-full p-2 mb-2 border rounded" rows={3} />
+            <button onClick={addCourse} className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded">Add Course</button>
           </div>
 
-          {/* Expandable courses list */}
-          <ExpandableList
-            title="Courses"
-            items={courses}
-            selectedId={selectedCourse?.id}
-            onSelect={setSelectedCourse}
-          />
+          {/* Expandable courses */}
+          <ExpandableList title="Courses" items={courses} selectedId={selectedCourse?.id} onSelect={setSelectedCourse} />
 
-          {/* Modules for selected course */}
+          {/* Modules */}
           {selectedCourse && (
             <>
               <div className="mb-4">
-                <input
-                  type="text"
-                  placeholder={`New Module Title for ${selectedCourse.title}`}
-                  value={newModuleTitle}
-                  onChange={(e) => setNewModuleTitle(e.target.value)}
-                  className="w-full p-2 mb-2 border rounded"
-                />
-                <button
-                  onClick={addModule}
-                  className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded"
-                >
-                  Add Module
-                </button>
+                <input type="text" placeholder={`New Module Title for ${selectedCourse.title}`} value={newModuleTitle} onChange={(e) => setNewModuleTitle(e.target.value)} className="w-full p-2 mb-2 border rounded" />
+                <button onClick={addModule} className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded">Add Module</button>
               </div>
-              <ExpandableList
-                title="Modules"
-                items={modules}
-                selectedId={selectedModule?.id}
-                onSelect={setSelectedModule}
-              />
+              <ExpandableList title="Modules" items={modules} selectedId={selectedModule?.id} onSelect={setSelectedModule} />
             </>
           )}
 
-          {/* Content for selected module */}
+          {/* Content */}
           {selectedModule && (
             <div className="mt-6">
               <h3 className="text-xl font-semibold mb-2">Add Content</h3>
-              <input
-                type="text"
-                placeholder="Content Title"
-                value={newContentTitle}
-                onChange={(e) => setNewContentTitle(e.target.value)}
-                className="w-full p-2 mb-2 border rounded"
-              />
-              <select
-                value={newContentType}
-                onChange={(e) => setNewContentType(e.target.value)}
-                className="w-full p-2 mb-2 border rounded"
-              >
-                <option value="image">Image</option>
-                <option value="image">Video</option>
+              <input type="text" placeholder="Content Title" value={newContentTitle} onChange={(e) => setNewContentTitle(e.target.value)} className="w-full p-2 mb-2 border rounded" />
+              <select value={newContentType} onChange={(e) => setNewContentType(e.target.value)} className="w-full p-2 mb-2 border rounded">
+                <option value="text">Text</option>
                 <option value="file">Document</option>
               </select>
-              {newContentType === "file" && (
-                <input
-                  type="file"
-                  onChange={(e) => setNewContentFile(e.target.files[0])}
-                  className="mb-2"
-                />
-              )}
-              <button
-                onClick={addContent}
-                disabled={uploading}
-                className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded mb-4"
-              >
-                {uploading ? "Uploading..." : "Add Content"}
-              </button>
+              {newContentType === "file" && <input type="file" onChange={(e) => setNewContentFile(e.target.files[0])} className="mb-2" />}
+              <button onClick={addContent} disabled={uploading} className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded mb-4">{uploading ? "Uploading..." : "Add Content"}</button>
 
-              {/* Content List */}
               <div>
                 <h3 className="text-xl font-semibold mb-2">Module Content</h3>
                 {contentList.map((c) => (
-                  <div
-                    key={c.id}
-                    className="border p-2 mb-2 flex justify-between items-center rounded"
-                  >
+                  <div key={c.id} className="border p-2 mb-2 flex justify-between items-center rounded">
                     <span>{c.title}</span>
                     <div className="flex gap-2">
-                      {c.type === "text" && (
-                        <button
-                          onClick={() => openTextInNewTab(c.text)}
-                          className="text-blue-500"
-                        >
-                          View
-                        </button>
-                      )}
-                      {c.type === "file" && c.fileURL && (
-                        <a
-                          href={c.fileURL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500"
-                        >
-                          Download
-                        </a>
-                      )}
-                      <button
-                        onClick={() => deleteContent(c)}
-                        className="text-red-500"
-                      >
-                        Delete
-                      </button>
+                      {c.type === "text" && <button onClick={() => openTextInNewTab(c.text)} className="text-blue-500">View</button>}
+                      {c.type === "file" && c.fileURL && <a href={c.fileURL} target="_blank" rel="noreferrer" className="text-blue-500">Download</a>}
+                      <button onClick={() => deleteContent(c)} className="text-red-500">Delete</button>
                     </div>
                   </div>
                 ))}
@@ -655,122 +474,61 @@ export default function CourseManagementPage() {
         </>
       )}
 
-      {/* Custom AI Generator Tab */}
+      {/* Custom AI Tab */}
       {activeTab === "customAI" && (
         <div>
-          
-          <textarea
-            placeholder="Type exactly what you want the AI to generate..."
-            value={customPrompt}
-            onChange={(e) => setCustomPrompt(e.target.value)}
-            className="w-full p-2 mb-4 border rounded"
-            rows={4}
-          />
+          <h2 className="text-xl font-semibold mb-4">Custom AI Question Generator</h2>
 
-          <select
-            value={questionCourseId}
-            onChange={(e) => setQuestionCourseId(e.target.value)}
-            className="p-2 border rounded mb-4 w-full max-w-md"
-          >
-            <option value="">Select Course</option>
-            {courses.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.title}
-              </option>
-            ))}
-          </select>
+          {/* Course & Module Selection */}
+          <div className="mb-4">
+            <select value={questionCourseId} onChange={(e) => setQuestionCourseId(e.target.value)} className="w-full p-2 mb-2 border rounded">
+              <option value="">Select Course</option>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </select>
 
-          <select
-            value={questionModuleId}
-            onChange={(e) => setQuestionModuleId(e.target.value)}
-            className="p-2 border rounded mb-4 w-full max-w-md"
-          >
-            <option value="">Select Module</option>
-            {modulesForQuestionCourse.map((module) => (
-              <option key={module.id} value={module.id}>
-                {module.title}
-              </option>
-            ))}
-          </select>
+            <select value={questionModuleId} onChange={(e) => setQuestionModuleId(e.target.value)} className="w-full p-2 mb-2 border rounded" disabled={!modulesForQuestionCourse.length}>
+              <option value="">Select Module</option>
+              {modulesForQuestionCourse.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+            </select>
 
-          <select
-            value={questionType}
-            onChange={(e) => setQuestionType(e.target.value)}
-            className="p-2 border rounded mb-4 w-full max-w-md"
-          >
-            <option value="text">Text</option>
-            <option value="multiple-choice">Multiple Choice</option>
-          </select>
+            <select value={questionType} onChange={(e) => setQuestionType(e.target.value)} className="w-full p-2 mb-2 border rounded">
+              <option value="text">Text</option>
+              <option value="multiple-choice">Multiple Choice</option>
+            </select>
+          </div>
 
-          <button
-            onClick={generateCustomAIQuestions}
-            className="px-4 py-2 rounded bg-gradient-to-r from-blue-400 to-pink-400 text-white mb-4"
-          >
-            {aiGenerating ? "Generating..." : "Generate Questions"}
-          </button>
+          {/* Custom Prompt */}
+          <textarea rows={3} placeholder="Enter prompt for AI question generator..." value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} className="w-full p-2 mb-2 border rounded" />
 
-          {customAIQuestions.map((q, i) => (
-            <QuestionEditor
-              key={i}
-              question={q}
-              onChange={(upd) => updateCustomQuestion(i, upd)}
-              questionType={questionType}
-            />
-          ))}
+          <div className="mb-4">
+            <button onClick={generateCustomAIQuestions} disabled={aiGenerating} className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded">{aiGenerating ? "Generating..." : "Generate Questions"}</button>
+            <button onClick={saveCustomToLibrary} disabled={!customAIQuestions.length} className="ml-2 bg-green-500 text-white px-4 py-2 rounded">Save to Library</button>
+          </div>
 
+          {/* Generated Questions */}
           {customAIQuestions.length > 0 && (
-            <button
-              onClick={saveCustomToLibrary}
-              className="mt-2 bg-gradient-to-r from-blue-400 to-pink-400 text-white py-2 px-4 rounded"
-            >
-              Save to Library
-            </button>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Generated Questions</h3>
+              {customAIQuestions.map((q, idx) => (
+                <QuestionEditor key={idx} question={q} questionType={questionType} onChange={(updated) => updateCustomQuestion(idx, updated)} />
+              ))}
+            </div>
           )}
 
-          {/* Questions Library section */}
-          <div className="mt-10">
-            <h3 className="text-xl font-semibold mb-4">Saved Questions Library</h3>
-            {questionsLibrary.length === 0 && (
-              <p className="text-gray-600">No saved questions yet.</p>
-            )}
+          {/* Questions Library */}
+          <div>
+            <h3 className="font-semibold mb-2">Saved Questions Library</h3>
             {questionsLibrary.map((entry) => (
-              <div key={entry.id} className="border p-4 mb-4 rounded bg-gray-50">
-                <div className="mb-3 text-sm text-gray-700">
-                  <span className="font-semibold">Course:</span> {getCourseTitleById(entry.courseId)}{" "}
-                  &nbsp;&nbsp;
-                  <span className="font-semibold">Module:</span> {getModuleTitleById(entry.courseId, entry.moduleId)}{" "}
-                  &nbsp;&nbsp;
-                  <span className="font-semibold">Type:</span> {entry.type}{" "}
-                  &nbsp;&nbsp;
-                  <span className="font-semibold">Target:</span> {entry.target}
-                </div>
-                <div className="mb-4">
-                  {entry.questions.map((q, idx) => (
-                    <div key={idx} className="mb-3 pl-4 border-l-2 border-blue-400">
-                      <p className="font-semibold mb-1">{idx + 1}. {q.text}</p>
-                      {entry.type === "multiple-choice" && q.options && q.options.length > 0 && (
-                        <ul className="list-disc list-inside ml-6">
-                          {q.options.map((opt, oi) => (
-                            <li key={oi}>{opt}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
+              <div key={entry.id} className="border p-2 mb-2 rounded flex justify-between items-center">
+                <div>
+                  <p><strong>Course:</strong> {getCourseTitleById(entry.courseId)}</p>
+                  <p><strong>Module:</strong> {getModuleTitleById(entry.courseId, entry.moduleId)}</p>
+                  <p><strong>Type:</strong> {entry.type}</p>
+                  <p><strong>Questions:</strong> {entry.questions.length}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => launchQuestions(entry)}
-                    className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded"
-                  >
-                    Launch
-                  </button>
-                  <button
-                    onClick={() => deleteLibraryEntry(entry.id)}
-                    className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-4 py-2 rounded"
-                  >
-                    Delete
-                  </button>
+                  <button onClick={() => launchQuestions(entry)} className="text-blue-500">Launch</button>
+                  <button onClick={() => deleteLibraryEntry(entry.id)} className="text-red-500">Delete</button>
                 </div>
               </div>
             ))}
