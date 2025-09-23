@@ -1,250 +1,397 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db, auth } from "../firebase";
 import {
   collection,
   query,
+  where,
   orderBy,
   onSnapshot,
-  doc,
-  updateDoc,
   addDoc,
-  serverTimestamp,
+  updateDoc,
+  deleteDoc,
+  doc,
   getDocs,
+  serverTimestamp,
 } from "firebase/firestore";
-import { FaPaperPlane } from "react-icons/fa";
+import { onAuthStateChanged } from "firebase/auth";
+import { FaThumbtack, FaTimesCircle } from "react-icons/fa";
 
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState([]);
-  const [selectedConvo, setSelectedConvo] = useState(null);
-  const [messageText, setMessageText] = useState("");
+  const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
-  const [searchUser, setSearchUser] = useState("");
-  const currentUser = auth.currentUser;
+  const [conversations, setConversations] = useState([]);
+  const [filteredConversations, setFilteredConversations] = useState([]);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [participantsToAdd, setParticipantsToAdd] = useState([]);
+  const [isGroupChat, setIsGroupChat] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const messagesEndRef = useRef(null);
 
-  // 🔹 Helper to get full name
-  const getFullName = (user) => {
-    if (!user) return "";
-    return `${user.firstName || ""} ${user.lastName || ""}`.trim();
-  };
-
-  // 🔹 Load conversations in real-time
+  // 🔹 Auth listener
   useEffect(() => {
-    if (!currentUser) return;
-
-    const q = query(
-      collection(db, "conversations"),
-      orderBy("lastUpdated", "desc")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const convos = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setConversations(convos);
-
-      // Refresh currently selected convo with latest messages
-      if (selectedConvo) {
-        const updated = convos.find((c) => c.id === selectedConvo.id);
-        if (updated) setSelectedConvo(updated);
-      }
+    return onAuthStateChanged(auth, (usr) => {
+      setUser(usr);
     });
+  }, []);
 
-    return () => unsubscribe();
-  }, [currentUser, selectedConvo?.id]);
-
-  // 🔹 Fetch all users (students, facilitators, admins)
+  // 🔹 Fetch all users
   useEffect(() => {
     const fetchUsers = async () => {
-      const snapshot = await getDocs(collection(db, "users"));
-      const userList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setUsers(userList);
+      const usersSnap = await getDocs(collection(db, "users"));
+      setUsers(usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
     fetchUsers();
   }, []);
 
-  // 🔹 Send message
-  const sendMessage = async () => {
-    if (!messageText.trim() || !selectedConvo) return;
-
-    const newMessage = {
-      sender: currentUser.email,
-      message: messageText.trim(),
-      timestamp: new Date(), // local optimistic timestamp
-    };
-
-    const convoRef = doc(db, "conversations", selectedConvo.id);
-
-    await updateDoc(convoRef, {
-      messages: [...(selectedConvo.messages || []), newMessage],
-      lastUpdated: serverTimestamp(),
-    });
-
-    // 🔹 Optimistic UI update so message shows instantly
-    setSelectedConvo((prev) => ({
-      ...prev,
-      messages: [...(prev.messages || []), newMessage],
-    }));
-
-    setMessageText("");
-  };
-
-  // 🔹 Start or select conversation
-  const handleSelectUser = async (userId) => {
-    if (!userId) return;
-    const recipient = users.find((u) => u.id === userId);
-
-    // Check if conversation already exists
-    const existingConvo = conversations.find(
-      (c) =>
-        c.participants.includes(currentUser.email) &&
-        c.participants.includes(recipient.email)
-    );
-
-    if (existingConvo) {
-      setSelectedConvo(existingConvo);
+  // 🔹 Conversations for logged in user
+  useEffect(() => {
+    if (!user) {
+      setConversations([]);
       return;
     }
-
-    // Create new convo if it doesn’t exist
-    const convoRef = await addDoc(collection(db, "conversations"), {
-      participants: [currentUser.email, recipient.email],
-      participantRoles: [currentUser.role || "Admin", recipient.role],
-      messages: [],
-      lastUpdated: serverTimestamp(),
+    const convQ = query(
+      collection(db, "conversations"),
+      where("participants", "array-contains", user.uid)
+    );
+    const unsubscribe = onSnapshot(convQ, (snap) => {
+      const convs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setConversations(convs);
     });
+    return unsubscribe;
+  }, [user]);
 
-    const newConvo = {
-      id: convoRef.id,
-      participants: [currentUser.email, recipient.email],
-      participantRoles: [currentUser.role || "Admin", recipient.role],
-      messages: [],
-    };
+  // 🔹 Filter conversations
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredConversations(conversations);
+      return;
+    }
+    const lowerSearch = searchTerm.toLowerCase();
+    const filtered = conversations.filter((conv) => {
+      if (conv.isGroup && conv.name) {
+        return conv.name.toLowerCase().includes(lowerSearch);
+      } else {
+        const otherUserId = conv.participants.find((id) => id !== user?.uid);
+        const otherUser = users.find((u) => u.id === otherUserId);
+        if (!otherUser) return false;
+        const otherName =
+          (otherUser.firstName || otherUser.name || otherUser.email || "").toLowerCase();
+        return otherName.includes(lowerSearch);
+      }
+    });
+    setFilteredConversations(filtered);
+  }, [searchTerm, conversations, users, user]);
 
-    setConversations([newConvo, ...conversations]); // add to UI immediately
-    setSelectedConvo(newConvo);
+  // 🔹 Messages listener
+  useEffect(() => {
+    if (!selectedConversationId) {
+      setMessages([]);
+      return;
+    }
+    const msgsRef = collection(db, "conversations", selectedConversationId, "messages");
+    const msgsQuery = query(msgsRef, orderBy("timestamp", "asc"));
+    const unsubscribe = onSnapshot(msgsQuery, (snap) => {
+      setMessages(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+    return unsubscribe;
+  }, [selectedConversationId]);
+
+  // 🔹 Mark as read
+  useEffect(() => {
+    if (!selectedConversationId || !user) return;
+    const convRef = doc(db, "conversations", selectedConversationId);
+    updateDoc(convRef, {
+      [`lastReadAt.${user.uid}`]: serverTimestamp(),
+    }).catch(console.error);
+  }, [selectedConversationId, user]);
+
+  // 🔹 Send new message
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversationId || !user) return;
+    const msgRef = collection(db, "conversations", selectedConversationId, "messages");
+    const text = newMessage.trim();
+
+    try {
+      await addDoc(msgRef, {
+        senderId: user.uid,
+        senderName: user.displayName || user.email,
+        text,
+        timestamp: serverTimestamp(),
+        pinned: false,
+      });
+
+      const convRef = doc(db, "conversations", selectedConversationId);
+      await updateDoc(convRef, {
+        lastMessageText: text,
+        lastMessageSender: user.displayName || user.email,
+        lastMessageTimestamp: serverTimestamp(),
+      });
+
+      setNewMessage("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert("Failed to send message.");
+    }
   };
 
-  // 🔹 Display participant full name & role instead of email
-  const formatParticipants = (participants) => {
-    return participants
-      .filter((p) => p !== currentUser.email)
-      .map((email) => {
-        const user = users.find((u) => u.email === email);
-        return user
-          ? `${getFullName(user)} (${user.role})`
-          : email;
+  // 🔹 Pin message
+  const togglePinMessage = async (msgId, pinned) => {
+    if (!selectedConversationId) return;
+    const msgRef = doc(db, "conversations", selectedConversationId, "messages", msgId);
+    try {
+      await updateDoc(msgRef, { pinned: !pinned });
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
+    }
+  };
+
+  // 🔹 Clear messages
+  const clearMessages = async () => {
+    if (!selectedConversationId) return;
+    if (!window.confirm("Clear all messages?")) return;
+
+    try {
+      const msgsSnap = await getDocs(
+        collection(db, "conversations", selectedConversationId, "messages")
+      );
+      const deletions = msgsSnap.docs.map((doc) => deleteDoc(doc.ref));
+      await Promise.all(deletions);
+
+      const convRef = doc(db, "conversations", selectedConversationId);
+      await updateDoc(convRef, {
+        lastMessageText: "",
+        lastMessageSender: "",
+        lastMessageTimestamp: null,
+      });
+    } catch (error) {
+      console.error("Failed to clear messages:", error);
+    }
+  };
+
+  // 🔹 Start conversation
+  const startConversation = async () => {
+    if (!user) return;
+    const participantIds = isGroupChat ? [user.uid, ...participantsToAdd] : [user.uid, participantsToAdd[0]];
+    if (isGroupChat && newGroupName.trim() === "") {
+      alert("Please enter a group chat name.");
+      return;
+    }
+    if (!isGroupChat) {
+      const convQuery = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", user.uid)
+      );
+      const convSnap = await getDocs(convQuery);
+      const existingConv = convSnap.docs.find((doc) => {
+        const p = doc.data().participants;
+        return p.length === 2 && p.includes(participantIds[1]);
+      });
+      if (existingConv) {
+        setSelectedConversationId(existingConv.id);
+        return;
+      }
+    }
+    try {
+      const newConv = await addDoc(collection(db, "conversations"), {
+        participants: participantIds,
+        isGroup: isGroupChat,
+        name: isGroupChat ? newGroupName.trim() : "",
+        createdAt: serverTimestamp(),
+        lastMessageText: "",
+        lastMessageSender: "",
+        lastMessageTimestamp: null,
+        lastReadAt: { [user.uid]: serverTimestamp() },
+      });
+      setSelectedConversationId(newConv.id);
+      setIsGroupChat(false);
+      setNewGroupName("");
+      setParticipantsToAdd([]);
+    } catch (error) {
+      console.error("Failed to start conversation:", error);
+    }
+  };
+
+  const toggleParticipant = (userId) => {
+    if (participantsToAdd.includes(userId)) {
+      setParticipantsToAdd(participantsToAdd.filter((id) => id !== userId));
+    } else {
+      setParticipantsToAdd([...participantsToAdd, userId]);
+    }
+  };
+
+  const renderConversationName = (conv) => {
+    const lastReadAtTimestamp = conv.lastReadAt?.[user?.uid];
+    const lastReadMillis = lastReadAtTimestamp ? lastReadAtTimestamp.toMillis() : 0;
+    const lastMsgMillis = conv.lastMessageTimestamp ? conv.lastMessageTimestamp.toMillis() : 0;
+    const hasUnread = lastMsgMillis > lastReadMillis;
+    const preview = conv.lastMessageText ? ` – ${conv.lastMessageText.slice(0, 20)}...` : "";
+
+    if (conv.isGroup) {
+      return (
+        <span style={{ fontWeight: hasUnread ? "bold" : "normal" }}>
+          {conv.name || "Unnamed Group"} {preview}
+        </span>
+      );
+    }
+
+    const otherIds = conv.participants.filter((id) => id !== user?.uid);
+    const names = otherIds
+      .map((id) => {
+        const u = users.find((user) => user.id === id);
+        return u ? u.firstName || u.name || u.email : "Unknown";
       })
       .join(", ");
+
+    return (
+      <span style={{ fontWeight: hasUnread ? "bold" : "normal" }}>
+        {names} {preview}
+      </span>
+    );
   };
 
   return (
-    <div className="flex flex-col md:flex-row bg-gray-50 min-h-screen p-4 md:p-6 gap-4">
-      {/* Conversations List */}
-      <div className="md:w-1/3 bg-white rounded-xl shadow p-4 overflow-y-auto h-[calc(100vh-32px)]">
-        <h2 className="text-xl font-bold text-gray-700 mb-4">📨 Conversations</h2>
-
-        {/* 🔍 User search */}
-        <input
-          type="text"
-          placeholder="Search user..."
-          className="w-full px-3 py-2 border rounded-lg mb-2"
-          value={searchUser}
-          onChange={(e) => setSearchUser(e.target.value)}
-        />
-
-        <select
-          className="w-full px-3 py-2 border rounded-lg mb-4"
-          onChange={(e) => handleSelectUser(e.target.value)}
-        >
-          <option value="">Select a user...</option>
-          {users
-            .filter(
-              (u) =>
-                u.email !== currentUser.email &&
-                (`${getFullName(u)} ${u.role}`
-                  .toLowerCase()
-                  .includes(searchUser.toLowerCase()))
-            )
-            .map((u) => (
-              <option key={u.id} value={u.id}>
-                {getFullName(u)} ({u.role})
-              </option>
-            ))}
-        </select>
-
-        {conversations.length === 0 ? (
-          <p className="text-gray-500">No conversations yet.</p>
-        ) : (
-          conversations.map((convo) => (
-            <div
-              key={convo.id}
-              className={`p-2 rounded-md mb-2 cursor-pointer hover:bg-blue-50 transition ${
-                selectedConvo?.id === convo.id ? "bg-blue-100" : ""
-              }`}
-              onClick={() => setSelectedConvo(convo)}
-            >
-              <h3 className="text-sm font-medium text-gray-700">
-                {formatParticipants(convo.participants)}
-              </h3>
-            </div>
-          ))
-        )}
+    <div className="max-w-6xl mx-auto p-6 min-h-screen flex flex-col gap-6 bg-white text-gray-900">
+      <div className="w-full py-3 bg-blue-700 text-white font-semibold rounded-xl shadow text-center text-3xl">
+        Messages
       </div>
-
-      {/* Chat Window */}
-      <div className="md:w-2/3 bg-white rounded-xl shadow flex flex-col p-4 h-[calc(100vh-32px)]">
-        {selectedConvo ? (
-          <>
-            <h3 className="font-bold text-gray-700 mb-4">
-              Chat with {formatParticipants(selectedConvo.participants)}
-            </h3>
-            <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-              {selectedConvo.messages?.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`p-2 rounded-lg max-w-xs ${
-                    msg.sender === currentUser.email
-                      ? "bg-blue-500 text-white ml-auto"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  <p>{msg.message}</p>
-                  <span className="text-xs text-gray-400 block mt-1">
-                    {msg.timestamp?.toDate
-                      ? msg.timestamp.toDate().toLocaleTimeString()
-                      : new Date(msg.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Input */}
-            <div className="flex gap-2">
+      <div className="flex gap-6 flex-1">
+        <aside className="w-72 bg-gray-100 rounded-xl shadow p-4 flex flex-col gap-3">
+          <h3 className="text-lg font-semibold text-gray-900">Conversations</h3>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search..."
+            className="w-full mb-3 p-2 rounded-lg border border-gray-300 bg-white text-gray-900"
+          />
+          <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+            {filteredConversations.map((conv) => (
+              <button
+                key={conv.id}
+                className={`text-left p-2 rounded-lg w-full ${
+                  conv.id === selectedConversationId
+                    ? "bg-blue-600 text-white"
+                    : "hover:bg-blue-100 text-gray-700"
+                }`}
+                onClick={() => setSelectedConversationId(conv.id)}
+              >
+                {renderConversationName(conv)}
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-gray-300 pt-4">
+            <label className="flex items-center gap-2 text-gray-700">
+              <input
+                type="checkbox"
+                checked={isGroupChat}
+                onChange={() => {
+                  setIsGroupChat(!isGroupChat);
+                  setParticipantsToAdd([]);
+                  setNewGroupName("");
+                }}
+                className="form-checkbox"
+              />
+              Group Chat
+            </label>
+            {isGroupChat && (
               <input
                 type="text"
-                className="flex-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Type a message..."
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Group chat name"
+                className="w-full mt-2 p-2 rounded-lg border border-gray-300 bg-white text-gray-900"
               />
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded-xl hover:bg-blue-600 transition"
-                onClick={sendMessage}
-              >
-                <FaPaperPlane />
-              </button>
+            )}
+            <div className="mt-2 max-h-64 overflow-y-auto border border-gray-300 rounded-lg p-1 bg-white">
+              {users
+                .filter((u) => u.id !== user?.uid)
+                .map((u) => (
+                  <label
+                    key={u.id}
+                    className="flex items-center gap-2 p-1 cursor-pointer hover:bg-blue-100 rounded text-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={participantsToAdd.includes(u.id)}
+                      onChange={() => toggleParticipant(u.id)}
+                      className="form-checkbox"
+                    />
+                    {u.firstName || u.name || u.email}
+                  </label>
+                ))}
             </div>
-          </>
-        ) : (
-          <p className="text-gray-500">
-            Select a user from the dropdown to start chatting.
-          </p>
-        )}
+            <button
+              onClick={startConversation}
+              disabled={participantsToAdd.length === 0 || (isGroupChat && newGroupName.trim() === "")}
+              className="w-full mt-3 py-2 bg-blue-600 text-white font-semibold rounded-xl shadow hover:bg-blue-700 disabled:opacity-50"
+            >
+              Start {isGroupChat ? "Group Chat" : "Private Chat"}
+            </button>
+          </div>
+        </aside>
+        <main className="flex-1 flex flex-col bg-gray-50 rounded-xl shadow p-4">
+          <div className="flex-1 overflow-y-auto mb-4 space-y-3">
+            {messages.length === 0 && (
+              <p className="text-center text-gray-500">No messages in this conversation.</p>
+            )}
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`max-w-xs p-3 rounded-lg break-words ${
+                  msg.senderId === user?.uid
+                    ? "bg-blue-600 text-white ml-auto"
+                    : "bg-gray-200 text-gray-900 mr-auto"
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <strong>{msg.senderName}</strong>
+                  <button
+                    title={msg.pinned ? "Unpin message" : "Pin message"}
+                    onClick={() => togglePinMessage(msg.id, msg.pinned)}
+                    className={`ml-2 text-sm ${
+                      msg.pinned ? "text-yellow-500" : "text-gray-500 hover:text-yellow-500"
+                    }`}
+                  >
+                    <FaThumbtack />
+                  </button>
+                </div>
+                <p>{msg.text}</p>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              className="flex-1 p-3 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              disabled={!selectedConversationId}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!selectedConversationId || !newMessage.trim()}
+              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow hover:bg-blue-700 disabled:opacity-50"
+            >
+              Send
+            </button>
+            <button
+              onClick={clearMessages}
+              disabled={!selectedConversationId}
+              className="ml-2 px-4 py-3 bg-red-600 text-white rounded-xl shadow hover:bg-red-700 disabled:opacity-50"
+            >
+              <FaTimesCircle />
+            </button>
+          </div>
+        </main>
       </div>
     </div>
   );
