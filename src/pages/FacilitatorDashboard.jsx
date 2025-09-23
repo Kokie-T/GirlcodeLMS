@@ -20,7 +20,7 @@ import Messages from "../components/MessagesPage";
 import CourseManagementPage from "../components/CourseManagementPage";
 import GradingPage from "../components/GradingPage";
 import CalendarPage from "../components/CalendarPage";
-import SystemSettings from "./SystemSettings";
+import FacilitatorSettings from "./FacilitatorSettings";
 
 export default function FacilitatorDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -121,8 +121,8 @@ export default function FacilitatorDashboard() {
         return <GradingPage darkMode={darkMode} />;
       case "Calendar":
         return <CalendarPage />;
-      case "SystemSettings":
-        return <SystemSettings />;
+      case "FacilitatorSettings":
+        return <FacilitatorSettings />;
       default:
         return <Dashboard />;
     }
@@ -135,7 +135,7 @@ export default function FacilitatorDashboard() {
     { icon: <FaBook />, label: "Course Management", page: "Manage-Courses" },
     { icon: <FaCheckSquare />, label: "Grading", page: "Grading" },
     { icon: <FaCalendarAlt />, label: "Calendar", page: "Calendar" },
-    { icon: <FaCog />, label: "Settings", page: "SystemSettings" },
+    { icon: <FaCog />, label: "Settings", page: "FacilitatorSettings" },
   ];
 
   return (
